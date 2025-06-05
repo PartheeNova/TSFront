@@ -1,0 +1,424 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>KhonKaen University Weather Monitoring Dashboard</title>
+    <!-- Tailwind CSS CDN for quick styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Chart.js CDN for charting -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        /* Custom font for better aesthetics */
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f0f2f5; /* Light gray background */
+        }
+        .dashboard-card {
+            background-color: #ffffff;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+        }
+        .chart-container {
+            position: relative;
+            height: 300px; /* Fixed height for charts */
+            width: 100%;
+        }
+        .metric-value {
+            font-size: 2.5rem;
+            font-weight: 700;
+            color: #10B981; /* Green-500 */
+        }
+        .metric-label {
+            font-size: 1.125rem; /* text-lg */
+            color: #6B7280; /* Gray-500 */
+            margin-top: 0.5rem;
+        }
+        .loading-indicator {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100%;
+            font-size: 1.2rem;
+            color: #9CA3AF; /* Gray-400 */
+        }
+        .header-content {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin-bottom: 8px; /* Adjusted margin-bottom */
+        }
+        .last-updated {
+            font-size: 0.9em;
+            color: #6B7280;
+            margin-top: 4px;
+        }
+    </style>
+</head>
+<body class="p-6">
+    <div class="max-w-6xl mx-auto">
+        <div class="header-content">
+            <h1 class="text-4xl font-bold text-center text-gray-800 mb-2">KhonKaen University Weather Monitoring Dashboard</h1>
+            <p class="last-updated text-gray-600">Last Record Time: <span id="lastUpdatedTime">N/A</span></p>
+        </div>
+
+        <!-- Filter Controls -->
+        <div class="dashboard-card mb-8">
+            <h2 class="text-xl font-semibold text-gray-700 mb-4">Data View Options</h2>
+            <div class="flex flex-col md:flex-row items-center space-y-4 md:space-y-0 md:space-x-4">
+                <div>
+                    <label for="timeRange" class="block text-sm font-medium text-gray-700 mb-1">Select Time Range:</label>
+                    <select id="timeRange" class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md">
+                        <option value="last20">Last 20 Entries (Raw)</option>
+                        <option value="last100">Last 100 Entries (Raw)</option>
+                        <option value="last500">Last 500 Entries (Raw)</option>
+                        <option value="last8000">Last 8000 Entries (Raw)</option>
+                        <option value="last24hours">Last 24 Hours (Raw)</option>
+                        <option value="last7days">Last 7 Days (Raw)</option>
+                        <option value="hourlyAvg24">Hourly Averages (Last 24 Hours)</option>
+                        <option value="dailyAvg7">Daily Averages (Last 7 Days)</option>
+                    </select>
+                </div>
+                <div>
+                    <label for="refreshInterval" class="block text-sm font-medium text-gray-700 mb-1">Refresh Interval:</label>
+                    <select id="refreshInterval" class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md">
+                        <option value="15">15 Seconds</option>
+                        <option value="30" selected>30 Seconds</option>
+                        <option value="60">1 Minute</option>
+                        <option value="300">5 Minutes</option>
+                        <option value="900">15 Minutes</option>
+                        <option value="3600">1 Hour</option>
+                    </select>
+                </div>
+                 <button id="applyFilter" class="mt-auto px-4 py-2 bg-indigo-600 text-white font-semibold rounded-md shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2">Apply</button>
+            </div>
+        </div>
+
+
+        <!-- Latest Values Display -->
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+            <div class="dashboard-card text-center">
+                <p id="latestField1" class="metric-value">--</p>
+                <p class="metric-label">Atmosphere Temperature (°C)</p>
+            </div>
+            <div class="dashboard-card text-center">
+                <p id="latestField2" class="metric-value">--</p>
+                <p class="metric-label">Atmosphere Humidity (%)</p>
+            </div>
+            <div class="dashboard-card text-center">
+                <p id="latestField3" class="metric-value">--</p>
+                <p class="metric-label">Light Level (lux)</p>
+            </div>
+            <div class="dashboard-card text-center">
+                <p id="latestField4" class="metric-value">--</p>
+                <p class="metric-label">Soil Temperature (°C)</p>
+            </div>
+        </div>
+
+        <!-- Charts Section -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div class="dashboard-card">
+                <h2 class="text-xl font-semibold text-gray-700 mb-4">Atmosphere Temperature (°C)</h2>
+                <div class="chart-container">
+                    <canvas id="chartField1"></canvas>
+                </div>
+            </div>
+            <div class="dashboard-card">
+                <h2 class="text-xl font-semibold text-gray-700 mb-4">Atmosphere Humidity (%)</h2>
+                <div class="chart-container">
+                    <canvas id="chartField2"></canvas>
+                </div>
+            </div>
+            <div class="dashboard-card">
+                <h2 class="text-xl font-semibold text-gray-700 mb-4">Light Level (lux)</h2>
+                <div class="chart-container">
+                    <canvas id="chartField3"></canvas>
+                </div>
+            </div>
+            <div class="dashboard-card">
+                <h2 class="text-xl font-semibold text-gray-700 mb-4">Soil Temperature (°C)</h2>
+                <div class="chart-container">
+                    <canvas id="chartField4"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const BACKEND_URL = 'https://tshub.onrender.com/api/thingspeak-data'; // URL of your Node.js backend
+
+        let chartInstances = {}; // Stores Chart.js instances
+        let currentRefreshIntervalId; // Stores the ID of the current setInterval
+
+        // Define which fields to display, their labels, and units
+        const fieldsToDisplay = [
+            { id: 1, label: 'Atmosphere Temperature', unit: '°C', elementId: 'chartField1', latestElementId: 'latestField1' },
+            { id: 2, label: 'Atmosphere Humidity', unit: '%', elementId: 'chartField2', latestElementId: 'latestField2' },
+            { id: 3, label: 'Light Level', unit: 'lux', elementId: 'chartField3', latestElementId: 'latestField3' },
+            { id: 4, label: 'Soil Temperature', unit: '°C', elementId: 'chartField4', latestElementId: 'latestField4' }
+        ];
+
+        /**
+         * Fetches data from the backend proxy server with selected time range parameters.
+         * @param {Object} params - Query parameters to send to the backend.
+         * @returns {Promise<Object|null>} The ThingSpeak data or null if an error occurs.
+         */
+        async function fetchThingSpeakData(params = {}) {
+            const query = new URLSearchParams(params).toString();
+            try {
+                const response = await fetch(`${BACKEND_URL}?${query}`);
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    throw new Error(`HTTP error! status: ${response.status}, message: ${errorText}`);
+                }
+                const data = await response.json();
+                return data;
+            } catch (error) {
+                console.error("Error fetching data from backend:", error);
+                // Display error on dashboard cards
+                fieldsToDisplay.forEach(field => {
+                    document.getElementById(field.latestElementId).textContent = "Error";
+                });
+                // Update last updated time with an error message
+                document.getElementById('lastUpdatedTime').textContent = "Error fetching data!";
+                return null;
+            }
+        }
+
+        /**
+         * Initializes or updates a Chart.js chart for a specific field.
+         * @param {string} canvasId - The ID of the canvas element.
+         * @param {string} label - The label for the chart's dataset.
+         * @param {Array<string>} timestamps - Array of formatted timestamps.
+         * @param {Array<number|null>} dataValues - Array of data values for the field.
+         * @param {string} borderColor - Color for the chart line.
+         * @param {string} unit - The unit of measurement for the Y-axis label.
+         */
+        function updateChart(canvasId, label, timestamps, dataValues, borderColor, unit) {
+            const ctx = document.getElementById(canvasId).getContext('2d');
+
+            if (chartInstances[canvasId]) {
+                // Update existing chart
+                chartInstances[canvasId].data.labels = timestamps;
+                chartInstances[canvasId].data.datasets[0].data = dataValues;
+                chartInstances[canvasId].options.scales.y.title.text = `Value (${unit})`;
+                chartInstances[canvasId].update();
+            } else {
+                // Create new chart
+                chartInstances[canvasId] = new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels: timestamps,
+                        datasets: [{
+                            label: `${label} (${unit})`, // Label includes unit
+                            data: dataValues,
+                            borderColor: borderColor,
+                            backgroundColor: `${borderColor}20`, // Light background fill
+                            tension: 0.3, // Smoother lines
+                            fill: true,
+                            pointRadius: 3,
+                            pointHoverRadius: 5
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false, // Allow custom height
+                        plugins: {
+                            legend: {
+                                display: true,
+                                position: 'top',
+                                labels: {
+                                    font: {
+                                        size: 14
+                                    }
+                                }
+                            },
+                            tooltip: {
+                                mode: 'index',
+                                intersect: false,
+                            }
+                        },
+                        scales: {
+                            x: {
+                                title: {
+                                    display: true,
+                                    text: 'Time',
+                                    color: '#4B5563' // Gray-700
+                                },
+                                ticks: {
+                                    color: '#6B7280' // Gray-500
+                                }
+                            },
+                            y: {
+                                title: {
+                                    display: true,
+                                    text: `Value (${unit})`, // Y-axis label includes unit
+                                    color: '#4B5563' // Gray-700
+                                },
+                                beginAtZero: false,
+                                ticks: {
+                                    color: '#6B7280' // Gray-500
+                                }
+                            }
+                        }
+                    }
+                });
+            }
+        }
+
+        /**
+         * Main function to update the entire dashboard.
+         * @param {boolean} [isInitialLoad=true] - True if this is the first load, false otherwise.
+         */
+        async function updateDashboard(isInitialLoad = true) {
+            const timeRangeSelect = document.getElementById('timeRange');
+            const selectedRange = timeRangeSelect.value;
+            let params = {};
+
+            // Determine API parameters based on selected time range
+            switch (selectedRange) {
+                case 'last20':
+                    params.results = 20;
+                    break;
+                case 'last100':
+                    params.results = 100;
+                    break;
+                case 'last500':
+                    params.results = 500;
+                    break;
+                case 'last8000':
+                    params.results = 8000;
+                    break;
+                case 'last24hours':
+                    params.minutes = 1440; // 24 hours in minutes
+                    params.results = 8000; // Still apply max results for raw data within timeframe
+                    break;
+                case 'last7days':
+                    params.days = 7;
+                    params.results = 8000; // Still apply max results for raw data within timeframe
+                    break;
+                case 'hourlyAvg24':
+                    params.minutes = 1440; // Data from last 24 hours
+                    params.average = 60; // Aggregate by hourly average
+                    // No 'results' param here, as average will determine number of points (24 points for 24 hours)
+                    break;
+                case 'dailyAvg7':
+                    params.days = 7; // Data from last 7 days
+                    params.average = 1440; // Aggregate by daily average
+                    // No 'results' param here, as average will determine number of points (7 points for 7 days)
+                    break;
+                default:
+                    params.results = 50; // Default if nothing selected or unknown
+            }
+
+            // Fetch data
+            const data = await fetchThingSpeakData(params);
+
+            if (data && data.feeds && data.feeds.length > 0) {
+                const feeds = data.feeds;
+
+                const fieldData = {};
+                fieldsToDisplay.forEach(field => {
+                    fieldData[field.id] = {
+                        timestamps: [],
+                        values: []
+                    };
+                });
+
+                feeds.forEach(feed => {
+                    // Use a more compact time format for hourly/daily averages
+                    const createdAt = new Date(feed.created_at);
+                    let formattedTime;
+                    if (selectedRange.includes('hourlyAvg')) {
+                        formattedTime = createdAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                    } else if (selectedRange.includes('dailyAvg')) {
+                        formattedTime = createdAt.toLocaleDateString();
+                    } else {
+                        formattedTime = createdAt.toLocaleString();
+                    }
+                    
+                    fieldsToDisplay.forEach(field => { 
+                        fieldData[field.id].timestamps.push(formattedTime);
+                        const fieldValue = parseFloat(feed[`field${field.id}`]);
+                        fieldData[field.id].values.push(isNaN(fieldValue) ? null : fieldValue);
+                    });
+                });
+
+                // Update latest values and charts for each field
+                fieldsToDisplay.forEach(field => {
+                    const latestValueElement = document.getElementById(field.latestElementId);
+                    const values = fieldData[field.id].values;
+
+                    if (values.length > 0 && values[values.length - 1] !== null) {
+                        latestValueElement.textContent = `${values[values.length - 1].toFixed(2)} ${field.unit}`;
+                    } else {
+                        latestValueElement.textContent = "N/A";
+                    }
+
+                    let color;
+                    switch(field.id) {
+                        case 1: color = '#EF4444'; break; // Red-500
+                        case 2: color = '#3B82F6'; break; // Blue-500
+                        case 3: color = '#F59E0B'; break; // Amber-500
+                        case 4: color = '#10B981'; break; // Green-500
+                        default: color = '#6B7280'; // Gray-500
+                    }
+
+                    updateChart(
+                        field.elementId,
+                        field.label,
+                        fieldData[field.id].timestamps,
+                        fieldData[field.id].values,
+                        color,
+                        field.unit // Pass the unit to updateChart
+                    );
+                });
+
+                // Update last record time using the last entry's created_at timestamp
+                const lastRecordTime = new Date(feeds[feeds.length - 1].created_at).toLocaleString();
+                document.getElementById('lastUpdatedTime').textContent = lastRecordTime;
+
+            } else {
+                console.warn("No data or invalid data structure received from ThingSpeak.");
+                fieldsToDisplay.forEach(field => {
+                    document.getElementById(field.latestElementId).textContent = "No Data";
+                    if (chartInstances[field.elementId]) {
+                        chartInstances[field.elementId].data.labels = [];
+                        chartInstances[field.elementId].data.datasets[0].data = [];
+                        chartInstances[field.elementId].update();
+                    }
+                });
+                document.getElementById('lastUpdatedTime').textContent = "No records found or failed to load data!";
+            }
+        }
+
+        /**
+         * Sets the automatic refresh interval for the dashboard.
+         */
+        function setRefreshInterval() {
+            // Clear any existing interval
+            if (currentRefreshIntervalId) {
+                clearInterval(currentRefreshIntervalId);
+            }
+            const intervalSeconds = parseInt(document.getElementById('refreshInterval').value);
+            currentRefreshIntervalId = setInterval(() => updateDashboard(false), intervalSeconds * 1000);
+            console.log(`Dashboard will refresh every ${intervalSeconds} seconds.`);
+        }
+
+        // Event Listeners
+        document.addEventListener('DOMContentLoaded', () => {
+            updateDashboard(); // Initial load
+            setRefreshInterval(); // Set initial refresh interval
+
+            document.getElementById('applyFilter').addEventListener('click', () => {
+                updateDashboard(); // Update immediately when filter is applied
+                setRefreshInterval(); // Reset interval with potentially new frequency
+            });
+            document.getElementById('refreshInterval').addEventListener('change', setRefreshInterval);
+        });
+    </script>
+</body>
+</html>
