@@ -170,6 +170,17 @@
             border-color: #6366F1; /* Indigo-500 on focus */
             box-shadow: 0 0 0 1px #6366F1; /* Ring on focus */
         }
+
+        /* Footer Styles */
+        .footer {
+            margin-top: 3rem;
+            padding: 1.5rem;
+            text-align: center;
+            color: var(--text-color-secondary);
+            font-size: 0.9em;
+            border-top: 1px solid var(--border-color);
+            transition: color 0.3s ease, border-color 0.3s ease;
+        }
     </style>
 </head>
 <body class="p-6">
@@ -215,7 +226,6 @@
                     </select>
                 </div>
                  <button id="applyFilter" class="mt-auto px-4 py-2 bg-indigo-600 text-white font-semibold rounded-md shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2">Apply</button>
-                 <button id="getWeatherInsightButton" class="mt-auto px-4 py-2 bg-purple-600 text-white font-semibold rounded-md shadow-sm hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 ml-2">✨ Get Weather Insight ✨</button>
             </div>
 
             <!-- Custom Date Range Inputs (initially hidden) -->
@@ -306,29 +316,16 @@
         </div>
     </div>
 
-    <!-- Weather Insight Modal -->
-    <div id="weatherInsightModal" class="modal-overlay">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h3>✨ Weather Insight ✨</h3>
-                <button class="modal-close-button" id="closeInsightModal">&times;</button>
-            </div>
-            <div class="modal-body">
-                <div id="insightLoadingSpinner" class="spinner mx-auto hidden"></div>
-                <p id="insightText">
-                    <!-- LLM generated text will be inserted here -->
-                </p>
-            </div>
-        </div>
-    </div>
+    <footer class="footer">
+        © 2025 Lumix Solutions. All rights reserved.
+    </footer>
 
     <script>
         // IMPORTANT: Update this URL based on where your Node.js backend is running.
         // If running locally: 'http://localhost:3000/api/thingspeak-data'
         // If deployed (e.g., Heroku or Render): 'https://your-app-name.herokuapp.com/api/thingspeak-data' or 'https://your-app-name.onrender.com/api/thingspeak-data'
         const BACKEND_URL = 'https://tshub.onrender.com/api/thingspeak-data';
-        // API Key for Gemini API. Canvas will automatically provide this if left empty.
-        const GEMINI_API_KEY = ''; 
+        // Removed GEMINI_API_KEY as the feature is no longer present.
 
         let chartInstances = {}; // Stores Chart.js instances
         let currentRefreshIntervalId; // Stores the ID of the current setInterval
@@ -351,12 +348,7 @@
         const endDateInput = document.getElementById('endDate');
         const dateRangeError = document.getElementById('dateRangeError');
 
-        // References for the new Weather Insight Modal
-        const getWeatherInsightButton = document.getElementById('getWeatherInsightButton');
-        const weatherInsightModal = document.getElementById('weatherInsightModal');
-        const closeInsightModalButton = document.getElementById('closeInsightModal');
-        const insightLoadingSpinner = document.getElementById('insightLoadingSpinner');
-        const insightText = document.getElementById('insightText');
+        // Removed references for the Weather Insight Modal
 
         /**
          * Sets the theme based on local storage or system preference.
@@ -792,87 +784,7 @@
             }
         }
 
-        /**
-         * Calls the Gemini API to get weather insights based on current dashboard data.
-         */
-        async function getGeminiWeatherInsight() {
-            weatherInsightModal.classList.add('show'); // Show modal
-            insightLoadingSpinner.classList.remove('hidden'); // Show spinner
-            insightText.textContent = ''; // Clear previous text
-
-            const currentRangeText = timeRangeSelect.options[timeRangeSelect.selectedIndex].textContent;
-            let currentStartTime = "N/A";
-            let currentEndTime = "N/A";
-
-            // If custom range is selected, use the input values
-            if (timeRangeSelect.value === 'custom') {
-                const start = new Date(startDateInput.value);
-                const end = new Date(endDateInput.value);
-                if (!isNaN(start.getTime()) && !isNaN(end.getTime())) {
-                    currentStartTime = start.toLocaleString();
-                    currentEndTime = end.toLocaleString();
-                }
-            } else {
-                // For other ranges, approximate based on ThingSpeak 'created_at' if data exists
-                const feeds = chartInstances[fieldsToDisplay[0].elementId]?.data.labels;
-                if (feeds && feeds.length > 0) {
-                    currentStartTime = feeds[0];
-                    currentEndTime = feeds[feeds.length - 1];
-                }
-            }
-
-
-            let prompt = `Analyze the following weather data from KhonKaen University for the period from ${currentStartTime} to ${currentEndTime}. `;
-            prompt += `Provide a concise summary of the weather conditions and any notable trends or anomalies observed during this period, suitable for a weather dashboard. Include specific values and context for KhonKaen, Thailand if relevant.`;
-            prompt += `\n\nData Overview:\n`;
-
-            fieldsToDisplay.forEach(field => {
-                const minVal = document.getElementById(field.minElementId).textContent;
-                const maxVal = document.getElementById(field.maxElementId).textContent;
-                const avgVal = document.getElementById(field.avgElementId).textContent;
-
-                prompt += `- ${field.label}: Min ${minVal}, Max ${maxVal}, Average ${avgVal}\n`;
-            });
-            
-            // Add some context for the LLM that this is for Thailand weather
-            prompt += `\nConsider that KhonKaen, Thailand, has a tropical savanna climate with distinct wet and dry seasons. This data is from a weather station in KhonKaen University.`;
-
-
-            try {
-                let chatHistory = [];
-                chatHistory.push({ role: "user", parts: [{ text: prompt }] });
-                const payload = { contents: chatHistory };
-
-                const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`;
-                const response = await fetch(apiUrl, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload)
-                });
-
-                if (!response.ok) {
-                    const errorJson = await response.json();
-                    throw new Error(`Gemini API error: ${response.status} - ${errorJson.error.message || 'Unknown error'}`);
-                }
-
-                const result = await response.json();
-                if (result.candidates && result.candidates.length > 0 &&
-                    result.candidates[0].content && result.candidates[0].content.parts &&
-                    result.candidates[0].content.parts.length > 0) {
-                    const text = result.candidates[0].content.parts[0].text;
-                    insightText.textContent = text;
-                } else {
-                    insightText.textContent = "No insight generated. The model may have refused or returned an empty response.";
-                    console.warn("Gemini API returned an unexpected response structure:", result);
-                }
-            } catch (error) {
-                console.error("Error calling Gemini API:", error);
-                insightText.textContent = `Failed to get weather insight: ${error.message}. Please try again later.`;
-            } finally {
-                insightLoadingSpinner.classList.add('hidden'); // Hide spinner
-            }
-        }
-
+        // Removed getGeminiWeatherInsight function
 
         // Event Listeners
         document.addEventListener('DOMContentLoaded', () => {
@@ -897,17 +809,7 @@
             });
             document.getElementById('refreshInterval').addEventListener('change', setRefreshInterval);
 
-            // New: Event listener for the Weather Insight button
-            getWeatherInsightButton.addEventListener('click', getGeminiWeatherInsight);
-            closeInsightModalButton.addEventListener('click', () => {
-                weatherInsightModal.classList.remove('show'); // Hide modal
-            });
-            // Hide modal if clicked outside content
-            weatherInsightModal.addEventListener('click', (event) => {
-                if (event.target === weatherInsightModal) {
-                    weatherInsightModal.classList.remove('show');
-                }
-            });
+            // Removed event listeners for the Weather Insight modal
         });
     </script>
 </body>
