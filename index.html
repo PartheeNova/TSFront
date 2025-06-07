@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="light"> <!-- Default to light mode, class will be toggled by JS -->
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -11,39 +11,72 @@
     <style>
         /* Custom font for better aesthetics */
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
+        
+        /* Basic theme variables and transitions */
+        :root {
+            --bg-color: #f0f2f5;
+            --card-bg-color: #ffffff;
+            --text-color-primary: #1F2937; /* gray-800 */
+            --text-color-secondary: #6B7280; /* gray-500 */
+            --border-color: #D1D5DB; /* gray-300 */
+            --shadow-color: rgba(0, 0, 0, 0.08);
+            --chart-title-color: #4B5563; /* gray-700 */
+            --chart-label-color: #6B7280; /* gray-500 */
+            --spinner-color: #3B82F6; /* blue-500 */
+            --loading-overlay-bg: rgba(255, 255, 255, 0.8);
+            --modal-bg: #ffffff;
+            --modal-shadow: rgba(0, 0, 0, 0.2);
+            --modal-border: #E5E7EB; /* gray-200 */
+        }
+
+        html.dark {
+            --bg-color: #121212; /* Even darker, almost black for background for true contrast */
+            --card-bg-color: #1e1e1e; /* Slightly lighter than background for cards */
+            --text-color-primary: #FFFFFF; /* Pure white for main headers */
+            --text-color-secondary: #F0F0F0; /* Very light gray for secondary text, including field labels */
+            --border-color: #424242; /* Darker border */
+            --shadow-color: rgba(0, 0, 0, 0.5); /* More pronounced shadow in dark mode */
+            --chart-title-color: #FFFFFF; /* Pure white for chart titles (h2) */
+            --chart-label-color: #D0D0D0; /* Lighter gray for chart labels/ticks */
+            --spinner-color: #90CAF9; /* Lighter blue for spinner */
+            --loading-overlay-bg: rgba(30, 30, 30, 0.8); /* Darker semi-transparent overlay */
+            --modal-bg: #2d3748; /* Dark modal background */
+            --modal-shadow: rgba(0, 0, 0, 0.7);
+            --modal-border: #4A5568;
+        }
+
         body {
             font-family: 'Inter', sans-serif;
-            background-color: #f0f2f5; /* Light gray background */
+            background-color: var(--bg-color);
+            color: var(--text-color-primary);
+            transition: background-color 0.3s ease, color 0.3s ease;
         }
         .dashboard-card {
-            background-color: #ffffff;
+            background-color: var(--card-bg-color);
             border-radius: 12px;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+            box-shadow: 0 4px 12px var(--shadow-color);
             padding: 1.5rem;
             margin-bottom: 1.5rem;
+            transition: background-color 0.3s ease, box-shadow 0.3s ease;
         }
         .chart-container {
             position: relative;
             height: 300px; /* Fixed height for charts */
             width: 100%;
+            display: flex; /* Flexbox for centering loading overlay content */
+            justify-content: center;
+            align-items: center;
+            overflow: hidden; /* Hide overflow if content exceeds boundary during loading etc */
         }
         .metric-value {
             font-size: 2.5rem;
             font-weight: 700;
-            color: #10B981; /* Green-500 */
+            color: #10B981; /* Green-500 - this remains constant as it's a specific metric color */
         }
         .metric-label {
             font-size: 1.125rem; /* text-lg */
-            color: #6B7280; /* Gray-500 */
+            color: var(--text-color-secondary); /* Now uses the brighter secondary color */
             margin-top: 0.5rem;
-        }
-        .loading-indicator {
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            height: 100%;
-            font-size: 1.2rem;
-            color: #9CA3AF; /* Gray-400 */
         }
         .header-content {
             display: flex;
@@ -53,17 +86,104 @@
         }
         .last-updated {
             font-size: 0.9em;
-            color: #6B7280;
+            color: var(--text-color-secondary); /* Now uses the brighter secondary color */
             margin-top: 4px;
+        }
+        .custom-range-inputs {
+            display: none; /* Hidden by default */
+            flex-direction: column; /* Stack inputs on mobile */
+            gap: 1rem; /* Space between inputs */
+            margin-top: 1rem;
+        }
+        @media (min-width: 768px) { /* md breakpoint for larger screens */
+            .custom-range-inputs {
+                flex-direction: row; /* Side-by-side on larger screens */
+                align-items: center;
+            }
+        }
+
+        /* Styles for Loading Overlay */
+        .loading-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: var(--loading-overlay-bg); /* Semi-transparent background */
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            color: var(--text-color-secondary); /* Gray text */
+            font-size: 1.1rem;
+            z-index: 10; /* Ensure it's above the canvas */
+            border-radius: 12px; /* Match card radius */
+            transition: opacity 0.3s ease-in-out, visibility 0.3s ease-in-out;
+            opacity: 1;
+            visibility: visible;
+        }
+        .loading-overlay.hidden {
+            opacity: 0;
+            visibility: hidden;
+            pointer-events: none; /* Allows clicks through when hidden */
+        }
+        .spinner {
+            border: 4px solid #f3f3f3; /* Light grey */
+            border-top: 4px solid var(--spinner-color); /* Blue spinner, changes with theme */
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            animation: spin 1s linear infinite;
+            margin-bottom: 0.5rem;
+            transition: border-top-color 0.3s ease;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        /* Styles for theme toggle button */
+        #themeToggle {
+            background-color: var(--card-bg-color);
+            color: var(--text-color-primary);
+            border: 1px solid var(--border-color);
+            padding: 0.5rem 1rem;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease;
+        }
+        #themeToggle:hover {
+            background-color: var(--bg-color);
+        }
+        /* Apply text colors using Tailwind classes that also use custom properties */
+        /* These rules are essential for Tailwind utility classes to respect the CSS variables */
+        .text-gray-800 { color: var(--text-color-primary); }
+        .text-gray-600 { color: var(--text-color-secondary); }
+        .text-gray-700 { color: var(--chart-title-color); }
+        /* Input and select elements also need their text color adjusted */
+        select, input[type="datetime-local"] {
+            background-color: var(--card-bg-color); /* Match card background */
+            color: var(--text-color-primary); /* Use primary text color */
+            border-color: var(--border-color); /* Use dynamic border color */
+            transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease;
+        }
+        select:focus, input[type="datetime-local"]:focus {
+            border-color: #6366F1; /* Indigo-500 on focus */
+            box-shadow: 0 0 0 1px #6366F1; /* Ring on focus */
         }
     </style>
 </head>
 <body class="p-6">
     <div class="max-w-6xl mx-auto">
-        <div class="header-content">
-            <h1 class="text-4xl font-bold text-center text-gray-800 mb-2">KhonKaen University Weather Monitoring Dashboard</h1>
-            <p class="last-updated text-gray-600">Last Record Time: <span id="lastUpdatedTime">N/A</span></p>
+        <div class="flex justify-between items-center mb-4">
+            <div class="header-content flex-grow">
+                <h1 class="text-4xl font-bold text-center text-gray-800 mb-2">KhonKaen University Weather Monitoring Dashboard</h1>
+                <p class="last-updated text-gray-600">Last Record Time: <span id="lastUpdatedTime">N/A</span></p>
+            </div>
+            <button id="themeToggle" class="ml-4 p-2 rounded-md shadow-sm">
+                <span id="themeIcon">☀️</span> <!-- Sun icon for light mode, moon for dark -->
+            </button>
         </div>
+
 
         <!-- Filter Controls -->
         <div class="dashboard-card mb-8">
@@ -80,6 +200,7 @@
                         <option value="last7days">Last 7 Days (Raw)</option>
                         <option value="hourlyAvg24">Hourly Averages (Last 24 Hours)</option>
                         <option value="dailyAvg7">Daily Averages (Last 7 Days)</option>
+                        <option value="custom">Custom Range</option> <!-- New option for custom range -->
                     </select>
                 </div>
                 <div>
@@ -94,7 +215,21 @@
                     </select>
                 </div>
                  <button id="applyFilter" class="mt-auto px-4 py-2 bg-indigo-600 text-white font-semibold rounded-md shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2">Apply</button>
+                 <button id="getWeatherInsightButton" class="mt-auto px-4 py-2 bg-purple-600 text-white font-semibold rounded-md shadow-sm hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 ml-2">✨ Get Weather Insight ✨</button>
             </div>
+
+            <!-- Custom Date Range Inputs (initially hidden) -->
+            <div id="customRangeSection" class="custom-range-inputs">
+                <div>
+                    <label for="startDate" class="block text-sm font-medium text-gray-700 mb-1">Start Date:</label>
+                    <input type="datetime-local" id="startDate" class="mt-1 block w-full pl-3 pr-3 py-2 text-base border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+                </div>
+                <div>
+                    <label for="endDate" class="block text-sm font-medium text-gray-700 mb-1">End Date:</label>
+                    <input type="datetime-local" id="endDate" class="mt-1 block w-full pl-3 pr-3 py-2 text-base border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+                </div>
+            </div>
+             <p id="dateRangeError" class="text-red-500 text-sm mt-2 hidden">End date cannot be before start date.</p>
         </div>
 
 
@@ -121,45 +256,252 @@
         <!-- Charts Section -->
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <div class="dashboard-card">
-                <h2 class="text-xl font-semibold text-gray-700 mb-4">Atmosphere Temperature (°C)</h2>
+                <h2 class="text-xl font-semibold text-gray-700 mb-2">Atmosphere Temperature (°C)</h2>
+                <p class="text-sm text-gray-600 mb-2">
+                    Min: <span id="minField1">N/A</span> | Max: <span id="maxField1">N/A</span> | Avg: <span id="avgField1">N/A</span>
+                </p>
                 <div class="chart-container">
+                    <div id="loadingField1" class="loading-overlay hidden">
+                        <div class="spinner"></div> Loading...
+                    </div>
                     <canvas id="chartField1"></canvas>
                 </div>
             </div>
             <div class="dashboard-card">
-                <h2 class="text-xl font-semibold text-gray-700 mb-4">Atmosphere Humidity (%)</h2>
+                <h2 class="text-xl font-semibold text-gray-700 mb-2">Atmosphere Humidity (%)</h2>
+                <p class="text-sm text-gray-600 mb-2">
+                    Min: <span id="minField2">N/A</span> | Max: <span id="maxField2">N/A</span> | Avg: <span id="avgField2">N/A</span>
+                </p>
                 <div class="chart-container">
+                    <div id="loadingField2" class="loading-overlay hidden">
+                        <div class="spinner"></div> Loading...
+                    </div>
                     <canvas id="chartField2"></canvas>
                 </div>
             </div>
             <div class="dashboard-card">
-                <h2 class="text-xl font-semibold text-gray-700 mb-4">Light Level (lux)</h2>
+                <h2 class="text-xl font-semibold text-gray-700 mb-2">Light Level (lux)</h2>
+                <p class="text-sm text-gray-600 mb-2">
+                    Min: <span id="minField3">N/A</span> | Max: <span id="maxField3">N/A</span> | Avg: <span id="avgField3">N/A</span>
+                </p>
                 <div class="chart-container">
+                    <div id="loadingField3" class="loading-overlay hidden">
+                        <div class="spinner"></div> Loading...
+                    </div>
                     <canvas id="chartField3"></canvas>
                 </div>
             </div>
             <div class="dashboard-card">
-                <h2 class="text-xl font-semibold text-gray-700 mb-4">Soil Temperature (°C)</h2>
+                <h2 class="text-xl font-semibold text-gray-700 mb-2">Soil Temperature (°C)</h2>
+                <p class="text-sm text-gray-600 mb-2">
+                    Min: <span id="minField4">N/A</span> | Max: <span id="maxField4">N/A</span> | Avg: <span id="avgField4">N/A</span>
+                </p>
                 <div class="chart-container">
+                    <div id="loadingField4" class="loading-overlay hidden">
+                        <div class="spinner"></div> Loading...
+                    </div>
                     <canvas id="chartField4"></canvas>
                 </div>
             </div>
         </div>
     </div>
 
+    <!-- Weather Insight Modal -->
+    <div id="weatherInsightModal" class="modal-overlay">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>✨ Weather Insight ✨</h3>
+                <button class="modal-close-button" id="closeInsightModal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div id="insightLoadingSpinner" class="spinner mx-auto hidden"></div>
+                <p id="insightText">
+                    <!-- LLM generated text will be inserted here -->
+                </p>
+            </div>
+        </div>
+    </div>
+
     <script>
-        const BACKEND_URL = 'https://tshub.onrender.com/api/thingspeak-data'; // URL of your Node.js backend
+        // IMPORTANT: Update this URL based on where your Node.js backend is running.
+        // If running locally: 'http://localhost:3000/api/thingspeak-data'
+        // If deployed (e.g., Heroku or Render): 'https://your-app-name.herokuapp.com/api/thingspeak-data' or 'https://your-app-name.onrender.com/api/thingspeak-data'
+        const BACKEND_URL = 'https://tshub.onrender.com/api/thingspeak-data';
+        // API Key for Gemini API. Canvas will automatically provide this if left empty.
+        const GEMINI_API_KEY = ''; 
 
         let chartInstances = {}; // Stores Chart.js instances
         let currentRefreshIntervalId; // Stores the ID of the current setInterval
 
         // Define which fields to display, their labels, and units
         const fieldsToDisplay = [
-            { id: 1, label: 'Atmosphere Temperature', unit: '°C', elementId: 'chartField1', latestElementId: 'latestField1' },
-            { id: 2, label: 'Atmosphere Humidity', unit: '%', elementId: 'chartField2', latestElementId: 'latestField2' },
-            { id: 3, label: 'Light Level', unit: 'lux', elementId: 'chartField3', latestElementId: 'latestField3' },
-            { id: 4, label: 'Soil Temperature', unit: '°C', elementId: 'chartField4', latestElementId: 'latestField4' }
+            { id: 1, label: 'Atmosphere Temperature', unit: '°C', elementId: 'chartField1', latestElementId: 'latestField1', minElementId: 'minField1', maxElementId: 'maxField1', avgElementId: 'avgField1' },
+            { id: 2, label: 'Atmosphere Humidity', unit: '%', elementId: 'chartField2', latestElementId: 'latestField2', minElementId: 'minField2', maxElementId: 'maxField2', avgElementId: 'avgField2' },
+            { id: 3, label: 'Light Level', unit: 'lux', elementId: 'chartField3', latestElementId: 'latestField3', minElementId: 'minField3', maxElementId: 'maxField3', avgElementId: 'avgField3' },
+            { id: 4, label: 'Soil Temperature', unit: '°C', elementId: 'chartField4', latestElementId: 'latestField4', minElementId: 'minField4', maxElementId: 'maxField4', avgElementId: 'avgField4' }
         ];
+
+        // Get references to the new elements
+        const htmlElement = document.documentElement;
+        const themeToggle = document.getElementById('themeToggle');
+        const themeIcon = document.getElementById('themeIcon');
+        const timeRangeSelect = document.getElementById('timeRange');
+        const customRangeSection = document.getElementById('customRangeSection');
+        const startDateInput = document.getElementById('startDate');
+        const endDateInput = document.getElementById('endDate');
+        const dateRangeError = document.getElementById('dateRangeError');
+
+        // References for the new Weather Insight Modal
+        const getWeatherInsightButton = document.getElementById('getWeatherInsightButton');
+        const weatherInsightModal = document.getElementById('weatherInsightModal');
+        const closeInsightModalButton = document.getElementById('closeInsightModal');
+        const insightLoadingSpinner = document.getElementById('insightLoadingSpinner');
+        const insightText = document.getElementById('insightText');
+
+        /**
+         * Sets the theme based on local storage or system preference.
+         */
+        function setThemeFromLocalStorage() {
+            const savedTheme = localStorage.getItem('theme');
+            if (savedTheme) {
+                htmlElement.className = savedTheme;
+            } else if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
+                htmlElement.className = 'dark';
+            } else {
+                htmlElement.className = 'light';
+            }
+            updateThemeIcon();
+            updateChartColors(); // Update chart colors after theme is set
+        }
+
+        /**
+         * Toggles the theme between light and dark.
+         */
+        function toggleTheme() {
+            if (htmlElement.classList.contains('light')) {
+                htmlElement.className = 'dark';
+                localStorage.setItem('theme', 'dark');
+            } else {
+                htmlElement.className = 'light';
+                localStorage.setItem('theme', 'light');
+            }
+            updateThemeIcon();
+            updateChartColors(); // Update chart colors when theme changes
+        }
+
+        /**
+         * Updates the theme icon based on the current theme.
+         */
+        function updateThemeIcon() {
+            if (htmlElement.classList.contains('dark')) {
+                themeIcon.textContent = '🌙'; // Moon icon for dark mode
+            } else {
+                themeIcon.textContent = '☀️'; // Sun icon for light mode
+            }
+        }
+
+        /**
+         * Dynamically updates chart colors based on the current theme.
+         * Call this after theme changes or on initial load.
+         */
+        function updateChartColors() {
+            // Get the computed values of the CSS variables
+            const titleColor = getComputedStyle(document.documentElement).getPropertyValue('--chart-title-color').trim();
+            const labelColor = getComputedStyle(document.documentElement).getPropertyValue('--chart-label-color').trim();
+            const gridColor = getComputedStyle(document.documentElement).getPropertyValue('--chart-label-color').trim(); // Grid color now matches label color for harmony
+
+
+            fieldsToDisplay.forEach(field => {
+                const canvasId = field.elementId;
+                if (chartInstances[canvasId]) {
+                    const chart = chartInstances[canvasId];
+                    // Update chart options if they exist
+                    if (chart.options.scales.x) {
+                        chart.options.scales.x.ticks.color = labelColor; // Use labelColor for ticks
+                        chart.options.scales.x.grid.color = gridColor;
+                        chart.options.scales.x.title.color = titleColor; // Use titleColor for axis titles
+                    }
+                    if (chart.options.scales.y) {
+                        chart.options.scales.y.ticks.color = labelColor; // Use labelColor for ticks
+                        chart.options.scales.y.grid.color = gridColor;
+                        chart.options.scales.y.title.color = titleColor; // Use titleColor for axis titles
+                    }
+                    if (chart.options.plugins && chart.options.plugins.legend && chart.options.plugins.legend.labels) {
+                         chart.options.plugins.legend.labels.font.color = titleColor; // Use titleColor for legend text
+                    }
+                    chart.update();
+                }
+            });
+        }
+
+
+        /**
+         * Formats a Date object into ThingSpeak's required Jamboree-MM-DD HH:NN:SS format using UTC values.
+         * Note: This function now returns a string with literal spaces and colons,
+         * as URLSearchParams will handle the URL encoding automatically.
+         * @param {Date} date - The Date object to format.
+         * @returns {string} The formatted date string (e.g., "2025-06-07 08:30:00").
+         */
+        function formatThingSpeakDate(date) {
+            const pad = (num) => num < 10 ? '0' + num : num;
+            const year = date.getUTCFullYear();
+            const month = pad(date.getUTCMonth() + 1); // getUTCMonth is 0-indexed
+            const day = pad(date.getUTCDate());
+            const hours = pad(date.getUTCHours());
+            const minutes = pad(date.getUTCMinutes());
+            const seconds = pad(date.getUTCSeconds());
+            return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`; // Changed %20 to ' '
+        }
+
+        /**
+         * Sets default values for custom date range inputs.
+         * Sets start date to 24 hours ago, end date to now, in local timezone.
+         */
+        function setDefaultCustomRange() {
+            const now = new Date();
+            const twentyFourHoursAgo = new Date(now.getTime() - (24 * 60 * 60 * 1000));
+
+            // Format for datetime-local input (YYYY-MM-DDTHH:mm) - uses local timezone for input display
+            const formatInputDate = (date) => {
+                const pad = (num) => num < 10 ? '0' + num : num;
+                return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+            };
+
+            startDateInput.value = formatInputDate(twentyFourHoursAgo);
+            endDateInput.value = formatInputDate(now);
+        }
+
+        /**
+         * Toggles visibility of custom date range inputs and manages defaults.
+         */
+        function toggleCustomRangeInputs() {
+            if (timeRangeSelect.value === 'custom') {
+                customRangeSection.style.display = 'flex'; // Show
+                if (!startDateInput.value || !endDateInput.value) { // Set defaults if empty
+                    setDefaultCustomRange();
+                }
+            } else {
+                customRangeSection.style.display = 'none'; // Hide
+                dateRangeError.classList.add('hidden'); // Hide error message
+            }
+        }
+
+        /**
+         * Shows or hides loading overlays for all charts.
+         * @param {boolean} show - True to show loading overlays, false to hide.
+         */
+        function toggleLoadingOverlays(show) {
+            fieldsToDisplay.forEach(field => {
+                const loadingOverlay = document.getElementById(`loading${field.id}`);
+                if (loadingOverlay) {
+                    if (show) {
+                        loadingOverlay.classList.remove('hidden');
+                    } else {
+                        loadingOverlay.classList.add('hidden');
+                    }
+                }
+            });
+        }
 
         /**
          * Fetches data from the backend proxy server with selected time range parameters.
@@ -168,6 +510,7 @@
          */
         async function fetchThingSpeakData(params = {}) {
             const query = new URLSearchParams(params).toString();
+            toggleLoadingOverlays(true); // Show loading overlays before fetching
             try {
                 const response = await fetch(`${BACKEND_URL}?${query}`);
                 if (!response.ok) {
@@ -178,13 +521,17 @@
                 return data;
             } catch (error) {
                 console.error("Error fetching data from backend:", error);
-                // Display error on dashboard cards
                 fieldsToDisplay.forEach(field => {
                     document.getElementById(field.latestElementId).textContent = "Error";
+                    // Clear min/max/avg on error
+                    document.getElementById(field.minElementId).textContent = "N/A";
+                    document.getElementById(field.maxElementId).textContent = "N/A";
+                    document.getElementById(field.avgElementId).textContent = "N/A";
                 });
-                // Update last updated time with an error message
                 document.getElementById('lastUpdatedTime').textContent = "Error fetching data!";
                 return null;
+            } finally {
+                toggleLoadingOverlays(false); // Hide loading overlays after fetch (success or error)
             }
         }
 
@@ -200,14 +547,34 @@
         function updateChart(canvasId, label, timestamps, dataValues, borderColor, unit) {
             const ctx = document.getElementById(canvasId).getContext('2d');
 
+            // Dynamically get colors for Chart.js elements from CSS variables
+            const titleColor = getComputedStyle(document.documentElement).getPropertyValue('--chart-title-color').trim();
+            const labelColor = getComputedStyle(document.documentElement).getPropertyValue('--chart-label-color').trim();
+            const gridColor = getComputedStyle(document.documentElement).getPropertyValue('--chart-label-color').trim(); // Using label color for grid as well for harmony
+
+
             if (chartInstances[canvasId]) {
-                // Update existing chart
                 chartInstances[canvasId].data.labels = timestamps;
                 chartInstances[canvasId].data.datasets[0].data = dataValues;
                 chartInstances[canvasId].options.scales.y.title.text = `Value (${unit})`;
+                chartInstances[canvasId].data.datasets[0].borderColor = borderColor; // Update line color
+                chartInstances[canvasId].data.datasets[0].backgroundColor = `${borderColor}20`; // Update background fill
+                // Update dynamic colors for existing charts
+                if (chartInstances[canvasId].options.scales.x) {
+                    chartInstances[canvasId].options.scales.x.ticks.color = labelColor;
+                    chartInstances[canvasId].options.scales.x.grid.color = gridColor;
+                    chartInstances[canvasId].options.scales.x.title.color = titleColor;
+                }
+                if (chartInstances[canvasId].options.scales.y) {
+                    chartInstances[canvasId].options.scales.y.ticks.color = labelColor;
+                    chartInstances[canvasId].options.scales.y.grid.color = gridColor;
+                    chartInstances[canvasId].options.scales.y.title.color = titleColor;
+                }
+                if (chartInstances[canvasId].options.plugins && chartInstances[canvasId].options.plugins.legend && chartInstances[canvasId].options.plugins.legend.labels) {
+                     chartInstances[canvasId].options.plugins.legend.labels.font.color = titleColor;
+                }
                 chartInstances[canvasId].update();
             } else {
-                // Create new chart
                 chartInstances[canvasId] = new Chart(ctx, {
                     type: 'line',
                     data: {
@@ -225,14 +592,15 @@
                     },
                     options: {
                         responsive: true,
-                        maintainAspectRatio: false, // Allow custom height
+                        maintainAspectRatio: false,
                         plugins: {
                             legend: {
                                 display: true,
                                 position: 'top',
                                 labels: {
                                     font: {
-                                        size: 14
+                                        size: 14,
+                                        color: titleColor // Dynamic color for legend labels
                                     }
                                 }
                             },
@@ -246,21 +614,27 @@
                                 title: {
                                     display: true,
                                     text: 'Time',
-                                    color: '#4B5563' // Gray-700
+                                    color: titleColor // Dynamic color
                                 },
                                 ticks: {
-                                    color: '#6B7280' // Gray-500
+                                    color: labelColor // Dynamic color
+                                },
+                                grid: {
+                                    color: gridColor // Dynamic color for grid lines
                                 }
                             },
                             y: {
                                 title: {
                                     display: true,
-                                    text: `Value (${unit})`, // Y-axis label includes unit
-                                    color: '#4B5563' // Gray-700
+                                    text: `Value (${unit})`,
+                                    color: titleColor // Dynamic color
                                 },
                                 beginAtZero: false,
                                 ticks: {
-                                    color: '#6B7280' // Gray-500
+                                    color: labelColor // Dynamic color
+                                },
+                                grid: {
+                                    color: gridColor // Dynamic color for grid lines
                                 }
                             }
                         }
@@ -271,50 +645,44 @@
 
         /**
          * Main function to update the entire dashboard.
-         * @param {boolean} [isInitialLoad=true] - True if this is the first load, false otherwise.
          */
-        async function updateDashboard(isInitialLoad = true) {
-            const timeRangeSelect = document.getElementById('timeRange');
+        async function updateDashboard() {
             const selectedRange = timeRangeSelect.value;
             let params = {};
+            dateRangeError.classList.add('hidden'); // Hide any previous error
 
-            // Determine API parameters based on selected time range
-            switch (selectedRange) {
-                case 'last20':
-                    params.results = 20;
-                    break;
-                case 'last100':
-                    params.results = 100;
-                    break;
-                case 'last500':
-                    params.results = 500;
-                    break;
-                case 'last8000':
-                    params.results = 8000;
-                    break;
-                case 'last24hours':
-                    params.minutes = 1440; // 24 hours in minutes
-                    params.results = 8000; // Still apply max results for raw data within timeframe
-                    break;
-                case 'last7days':
-                    params.days = 7;
-                    params.results = 8000; // Still apply max results for raw data within timeframe
-                    break;
-                case 'hourlyAvg24':
-                    params.minutes = 1440; // Data from last 24 hours
-                    params.average = 60; // Aggregate by hourly average
-                    // No 'results' param here, as average will determine number of points (24 points for 24 hours)
-                    break;
-                case 'dailyAvg7':
-                    params.days = 7; // Data from last 7 days
-                    params.average = 1440; // Aggregate by daily average
-                    // No 'results' param here, as average will determine number of points (7 points for 7 days)
-                    break;
-                default:
-                    params.results = 50; // Default if nothing selected or unknown
+            if (selectedRange === 'custom') {
+                const start = new Date(startDateInput.value);
+                const end = new Date(endDateInput.value);
+
+                if (isNaN(start.getTime()) || isNaN(end.getTime())) {
+                    dateRangeError.textContent = "Please select valid start and end dates.";
+                    dateRangeError.classList.remove('hidden');
+                    return; // Prevent update if dates are invalid
+                }
+                if (start.getTime() >= end.getTime()) {
+                    dateRangeError.textContent = "End date cannot be before or same as start date.";
+                    dateRangeError.classList.remove('hidden');
+                    return; // Prevent update if dates are invalid
+                }
+                params.start = formatThingSpeakDate(start);
+                params.end = formatThingSpeakDate(end);
+                // ThingSpeak limits custom range to 8000 results. Set a high number to get all possible.
+                params.results = 8000;
+            } else {
+                switch (selectedRange) {
+                    case 'last20': params.results = 20; break;
+                    case 'last100': params.results = 100; break;
+                    case 'last500': params.results = 500; break;
+                    case 'last8000': params.results = 8000; break;
+                    case 'last24hours': params.minutes = 1440; params.results = 8000; break;
+                    case 'last7days': params.days = 7; params.results = 8000; break;
+                    case 'hourlyAvg24': params.minutes = 1440; params.average = 60; break;
+                    case 'dailyAvg7': params.days = 7; params.average = 1440; break;
+                    default: params.results = 50;
+                }
             }
 
-            // Fetch data
             const data = await fetchThingSpeakData(params);
 
             if (data && data.feeds && data.feeds.length > 0) {
@@ -329,15 +697,12 @@
                 });
 
                 feeds.forEach(feed => {
-                    // Use a more compact time format for hourly/daily averages
                     const createdAt = new Date(feed.created_at);
                     let formattedTime;
-                    if (selectedRange.includes('hourlyAvg')) {
-                        formattedTime = createdAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-                    } else if (selectedRange.includes('dailyAvg')) {
-                        formattedTime = createdAt.toLocaleDateString();
-                    } else {
+                    if (selectedRange.includes('hourlyAvg') || selectedRange.includes('dailyAvg') || selectedRange === 'custom') {
                         formattedTime = createdAt.toLocaleString();
+                    } else {
+                        formattedTime = createdAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
                     }
                     
                     fieldsToDisplay.forEach(field => { 
@@ -347,15 +712,28 @@
                     });
                 });
 
-                // Update latest values and charts for each field
                 fieldsToDisplay.forEach(field => {
                     const latestValueElement = document.getElementById(field.latestElementId);
-                    const values = fieldData[field.id].values;
+                    const values = fieldData[field.id].values.filter(v => v !== null); // Filter out nulls for calculations
 
-                    if (values.length > 0 && values[values.length - 1] !== null) {
+                    if (values.length > 0) {
                         latestValueElement.textContent = `${values[values.length - 1].toFixed(2)} ${field.unit}`;
+                        
+                        // Calculate Min, Max, Avg
+                        const minVal = Math.min(...values);
+                        const maxVal = Math.max(...values);
+                        const sumVal = values.reduce((acc, val) => acc + val, 0);
+                        const avgVal = sumVal / values.length;
+
+                        document.getElementById(field.minElementId).textContent = `${minVal.toFixed(2)} ${field.unit}`;
+                        document.getElementById(field.maxElementId).textContent = `${maxVal.toFixed(2)} ${field.unit}`;
+                        document.getElementById(field.avgElementId).textContent = `${avgVal.toFixed(2)} ${field.unit}`;
+
                     } else {
                         latestValueElement.textContent = "N/A";
+                        document.getElementById(field.minElementId).textContent = "N/A";
+                        document.getElementById(field.maxElementId).textContent = "N/A";
+                        document.getElementById(field.avgElementId).textContent = "N/A";
                     }
 
                     let color;
@@ -373,11 +751,10 @@
                         fieldData[field.id].timestamps,
                         fieldData[field.id].values,
                         color,
-                        field.unit // Pass the unit to updateChart
+                        field.unit
                     );
                 });
 
-                // Update last record time using the last entry's created_at timestamp
                 const lastRecordTime = new Date(feeds[feeds.length - 1].created_at).toLocaleString();
                 document.getElementById('lastUpdatedTime').textContent = lastRecordTime;
 
@@ -385,6 +762,9 @@
                 console.warn("No data or invalid data structure received from ThingSpeak.");
                 fieldsToDisplay.forEach(field => {
                     document.getElementById(field.latestElementId).textContent = "No Data";
+                    document.getElementById(field.minElementId).textContent = "N/A";
+                    document.getElementById(field.maxElementId).textContent = "N/A";
+                    document.getElementById(field.avgElementId).textContent = "N/A";
                     if (chartInstances[field.elementId]) {
                         chartInstances[field.elementId].data.labels = [];
                         chartInstances[field.elementId].data.datasets[0].data = [];
@@ -399,25 +779,135 @@
          * Sets the automatic refresh interval for the dashboard.
          */
         function setRefreshInterval() {
-            // Clear any existing interval
             if (currentRefreshIntervalId) {
                 clearInterval(currentRefreshIntervalId);
             }
             const intervalSeconds = parseInt(document.getElementById('refreshInterval').value);
-            currentRefreshIntervalId = setInterval(() => updateDashboard(false), intervalSeconds * 1000);
-            console.log(`Dashboard will refresh every ${intervalSeconds} seconds.`);
+            // Do not set refresh for custom range as it's a fixed historical view
+            if (timeRangeSelect.value !== 'custom') {
+                 currentRefreshIntervalId = setInterval(() => updateDashboard(), intervalSeconds * 1000);
+                 console.log(`Dashboard will refresh every ${intervalSeconds} seconds.`);
+            } else {
+                 console.log("Auto-refresh paused for custom date range.");
+            }
         }
+
+        /**
+         * Calls the Gemini API to get weather insights based on current dashboard data.
+         */
+        async function getGeminiWeatherInsight() {
+            weatherInsightModal.classList.add('show'); // Show modal
+            insightLoadingSpinner.classList.remove('hidden'); // Show spinner
+            insightText.textContent = ''; // Clear previous text
+
+            const currentRangeText = timeRangeSelect.options[timeRangeSelect.selectedIndex].textContent;
+            let currentStartTime = "N/A";
+            let currentEndTime = "N/A";
+
+            // If custom range is selected, use the input values
+            if (timeRangeSelect.value === 'custom') {
+                const start = new Date(startDateInput.value);
+                const end = new Date(endDateInput.value);
+                if (!isNaN(start.getTime()) && !isNaN(end.getTime())) {
+                    currentStartTime = start.toLocaleString();
+                    currentEndTime = end.toLocaleString();
+                }
+            } else {
+                // For other ranges, approximate based on ThingSpeak 'created_at' if data exists
+                const feeds = chartInstances[fieldsToDisplay[0].elementId]?.data.labels;
+                if (feeds && feeds.length > 0) {
+                    currentStartTime = feeds[0];
+                    currentEndTime = feeds[feeds.length - 1];
+                }
+            }
+
+
+            let prompt = `Analyze the following weather data from KhonKaen University for the period from ${currentStartTime} to ${currentEndTime}. `;
+            prompt += `Provide a concise summary of the weather conditions and any notable trends or anomalies observed during this period, suitable for a weather dashboard. Include specific values and context for KhonKaen, Thailand if relevant.`;
+            prompt += `\n\nData Overview:\n`;
+
+            fieldsToDisplay.forEach(field => {
+                const minVal = document.getElementById(field.minElementId).textContent;
+                const maxVal = document.getElementById(field.maxElementId).textContent;
+                const avgVal = document.getElementById(field.avgElementId).textContent;
+
+                prompt += `- ${field.label}: Min ${minVal}, Max ${maxVal}, Average ${avgVal}\n`;
+            });
+            
+            // Add some context for the LLM that this is for Thailand weather
+            prompt += `\nConsider that KhonKaen, Thailand, has a tropical savanna climate with distinct wet and dry seasons. This data is from a weather station in KhonKaen University.`;
+
+
+            try {
+                let chatHistory = [];
+                chatHistory.push({ role: "user", parts: [{ text: prompt }] });
+                const payload = { contents: chatHistory };
+
+                const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`;
+                const response = await fetch(apiUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                if (!response.ok) {
+                    const errorJson = await response.json();
+                    throw new Error(`Gemini API error: ${response.status} - ${errorJson.error.message || 'Unknown error'}`);
+                }
+
+                const result = await response.json();
+                if (result.candidates && result.candidates.length > 0 &&
+                    result.candidates[0].content && result.candidates[0].content.parts &&
+                    result.candidates[0].content.parts.length > 0) {
+                    const text = result.candidates[0].content.parts[0].text;
+                    insightText.textContent = text;
+                } else {
+                    insightText.textContent = "No insight generated. The model may have refused or returned an empty response.";
+                    console.warn("Gemini API returned an unexpected response structure:", result);
+                }
+            } catch (error) {
+                console.error("Error calling Gemini API:", error);
+                insightText.textContent = `Failed to get weather insight: ${error.message}. Please try again later.`;
+            } finally {
+                insightLoadingSpinner.classList.add('hidden'); // Hide spinner
+            }
+        }
+
 
         // Event Listeners
         document.addEventListener('DOMContentLoaded', () => {
+            setThemeFromLocalStorage(); // Set theme on initial load
+            setDefaultCustomRange(); // Set initial default values for custom range inputs
+            toggleCustomRangeInputs(); // Set initial visibility based on default selected option
             updateDashboard(); // Initial load
             setRefreshInterval(); // Set initial refresh interval
+
+            themeToggle.addEventListener('click', toggleTheme); // Toggle theme on button click
+            
+            timeRangeSelect.addEventListener('change', () => {
+                toggleCustomRangeInputs();
+                // When time range changes, trigger an update immediately
+                updateDashboard();
+                setRefreshInterval(); // Reset interval, potentially pausing it for 'custom'
+            });
 
             document.getElementById('applyFilter').addEventListener('click', () => {
                 updateDashboard(); // Update immediately when filter is applied
                 setRefreshInterval(); // Reset interval with potentially new frequency
             });
             document.getElementById('refreshInterval').addEventListener('change', setRefreshInterval);
+
+            // New: Event listener for the Weather Insight button
+            getWeatherInsightButton.addEventListener('click', getGeminiWeatherInsight);
+            closeInsightModalButton.addEventListener('click', () => {
+                weatherInsightModal.classList.remove('show'); // Hide modal
+            });
+            // Hide modal if clicked outside content
+            weatherInsightModal.addEventListener('click', (event) => {
+                if (event.target === weatherInsightModal) {
+                    weatherInsightModal.classList.remove('show');
+                }
+            });
         });
     </script>
 </body>
