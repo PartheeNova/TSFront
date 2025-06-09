@@ -3,11 +3,15 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Rice GI Dashboard</title>
+    <title>Rice GI Dashboard</title> <!-- Updated project name in title -->
     <!-- Tailwind CSS CDN for quick styling -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Chart.js CDN for charting -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- html2canvas for capturing HTML elements as images -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <!-- jsPDF for generating PDF documents -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <style>
         /* Custom font for better aesthetics */
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
@@ -30,7 +34,7 @@
         }
 
         html.dark {
-            --bg-color: #25222b93; /* Even darker, almost black for background for true contrast */
+            --bg-color: #121212; /* Even darker, almost black for background for true contrast */
             --card-bg-color: #1e1e1e; /* Slightly lighter than background for cards */
             --text-color-primary: #FFFFFF; /* Pure white for main headers */
             --text-color-secondary: #F0F0F0; /* Very light gray for secondary text, including field labels */
@@ -181,13 +185,40 @@
             border-top: 1px solid var(--border-color);
             transition: color 0.3s ease, border-color 0.3s ease;
         }
+
+        /* Full page loading overlay for PDF generation */
+        #pdfLoadingOverlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.7); /* Darker overlay */
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            color: white;
+            font-size: 1.5rem;
+            z-index: 2000; /* Ensure it's on top of everything */
+            transition: opacity 0.3s ease-in-out, visibility 0.3s ease-in-out;
+            opacity: 0;
+            visibility: hidden;
+        }
+        #pdfLoadingOverlay.show {
+            opacity: 1;
+            visibility: visible;
+        }
+        #pdfLoadingOverlay .spinner {
+            border-top: 4px solid #fff; /* White spinner for dark background */
+        }
     </style>
 </head>
 <body class="p-6">
-    <div class="max-w-6xl mx-auto">
+    <div id="dashboard-content" class="max-w-6xl mx-auto"> <!-- Added ID for html2canvas capture -->
         <div class="flex justify-between items-center mb-4">
             <div class="header-content flex-grow">
-                <h1 class="text-4xl font-bold text-center text-gray-800 mb-2">Rice GI Dashboard</h1>
+                <h1 class="text-4xl font-bold text-center text-gray-800 mb-2">Rice GI Dashboard</h1> <!-- Updated project name -->
                 <p class="last-updated text-gray-600">Last Record Time: <span id="lastUpdatedTime">N/A</span></p>
             </div>
             <button id="themeToggle" class="ml-4 p-2 rounded-md shadow-sm">
@@ -226,6 +257,7 @@
                     </select>
                 </div>
                  <button id="applyFilter" class="mt-auto px-4 py-2 bg-indigo-600 text-white font-semibold rounded-md shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2">Apply</button>
+                 <button id="generatePdfReport" class="mt-auto px-4 py-2 bg-blue-600 text-white font-semibold rounded-md shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ml-2">Generate PDF Report</button>
             </div>
 
             <!-- Custom Date Range Inputs (initially hidden) -->
@@ -317,15 +349,20 @@
     </div>
 
     <footer class="footer">
-        © 2025 Lumix Solutions. All rights reserved.
+        © 2025 Lunix Solutions. All rights reserved. <!-- Updated company name -->
     </footer>
+
+    <!-- Full page loading overlay for PDF generation -->
+    <div id="pdfLoadingOverlay" class="hidden">
+        <div class="spinner"></div>
+        <p class="mt-2">Generating PDF Report...</p>
+    </div>
 
     <script>
         // IMPORTANT: Update this URL based on where your Node.js backend is running.
         // If running locally: 'http://localhost:3000/api/thingspeak-data'
         // If deployed (e.g., Heroku or Render): 'https://your-app-name.herokuapp.com/api/thingspeak-data' or 'https://your-app-name.onrender.com/api/thingspeak-data'
         const BACKEND_URL = 'https://tshub.onrender.com/api/thingspeak-data';
-        // Removed GEMINI_API_KEY as the feature is no longer present.
 
         let chartInstances = {}; // Stores Chart.js instances
         let currentRefreshIntervalId; // Stores the ID of the current setInterval
@@ -348,7 +385,11 @@
         const endDateInput = document.getElementById('endDate');
         const dateRangeError = document.getElementById('dateRangeError');
 
-        // Removed references for the Weather Insight Modal
+        // New references for PDF generation
+        const generatePdfButton = document.getElementById('generatePdfReport');
+        const pdfLoadingOverlay = document.getElementById('pdfLoadingOverlay');
+        const dashboardContent = document.getElementById('dashboard-content');
+
 
         /**
          * Sets the theme based on local storage or system preference.
@@ -418,8 +459,8 @@
                         chart.options.scales.y.grid.color = gridColor;
                         chart.options.scales.y.title.color = titleColor; // Use titleColor for axis titles
                     }
-                    if (chart.options.plugins && chart.options.plugins.legend && chart.options.plugins.legend.labels) {
-                         chart.options.plugins.legend.labels.font.color = titleColor; // Use titleColor for legend text
+                    if (chart.options.plugins && chart.options.plugins.legend && chartInstance[canvasId].options.plugins.legend.labels) {
+                         chartInstances[canvasId].options.plugins.legend.labels.font.color = titleColor;
                     }
                     chart.update();
                 }
@@ -542,7 +583,7 @@
             // Dynamically get colors for Chart.js elements from CSS variables
             const titleColor = getComputedStyle(document.documentElement).getPropertyValue('--chart-title-color').trim();
             const labelColor = getComputedStyle(document.documentElement).getPropertyValue('--chart-label-color').trim();
-            const gridColor = getComputedStyle(document.documentElement).getPropertyValue('--chart-label-color').trim(); // Using label color for grid as well for harmony
+            const gridColor = getComputedStyle(document.documentElement).getPropertyValue('--chart-label-color').trim(); // Grid color now matches label color for harmony
 
 
             if (chartInstances[canvasId]) {
@@ -706,6 +747,12 @@
 
                 fieldsToDisplay.forEach(field => {
                     const latestValueElement = document.getElementById(field.latestElementId);
+                    // Check if element exists before trying to access its properties
+                    if (!latestValueElement) {
+                        console.error(`Element with ID '${field.latestElementId}' not found.`);
+                        return; // Skip to the next field if the element is not found
+                    }
+
                     const values = fieldData[field.id].values.filter(v => v !== null); // Filter out nulls for calculations
 
                     if (values.length > 0) {
@@ -784,7 +831,59 @@
             }
         }
 
-        // Removed getGeminiWeatherInsight function
+        /**
+         * Generates a PDF report of the dashboard content.
+         */
+        async function generatePdfReport() {
+            pdfLoadingOverlay.classList.add('show'); // Show loading overlay
+
+            // Temporarily adjust body padding for html2canvas capture to avoid clipping issues if any
+            const originalPadding = document.body.style.padding;
+            document.body.style.padding = '20px'; // Add some temporary padding
+
+            try {
+                const canvas = await html2canvas(dashboardContent, {
+                    scale: 2, // Increase scale for better quality
+                    useCORS: true, // Needed if you have images from different origins, though unlikely for this dashboard
+                    logging: true, // Enable logging for debugging html2canvas issues
+                    windowWidth: document.body.scrollWidth, // Capture full scrollable width
+                    windowHeight: document.body.scrollHeight // Capture full scrollable height
+                });
+
+                const imgData = canvas.toDataURL('image/png');
+                const { jsPDF } = window.jspdf;
+                const pdf = new jsPDF('p', 'mm', 'a4'); // 'p' for portrait, 'mm' for millimeters, 'a4' size
+
+                const imgWidth = 210; // A4 width in mm
+                const pageHeight = 297; // A4 height in mm
+                const imgHeight = canvas.height * imgWidth / canvas.width;
+                let heightLeft = imgHeight;
+                let position = 0;
+
+                // Add image to PDF, handling multiple pages if content is too long
+                pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+                heightLeft -= pageHeight;
+
+                while (heightLeft >= 0) {
+                    position = heightLeft - imgHeight;
+                    pdf.addPage();
+                    pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+                    heightLeft -= pageHeight;
+                }
+
+                const currentDateTime = new Date().toISOString().slice(0, 19).replace(/:/g, '-');
+                pdf.save(`weather_report_${currentDateTime}.pdf`);
+
+            } catch (error) {
+                console.error("Error generating PDF:", error);
+                // In a real app, you might show a user-friendly error message here
+                alert("Failed to generate PDF report. Please try again.");
+            } finally {
+                pdfLoadingOverlay.classList.remove('show'); // Hide loading overlay
+                document.body.style.padding = originalPadding; // Restore original padding
+            }
+        }
+
 
         // Event Listeners
         document.addEventListener('DOMContentLoaded', () => {
@@ -809,7 +908,8 @@
             });
             document.getElementById('refreshInterval').addEventListener('change', setRefreshInterval);
 
-            // Removed event listeners for the Weather Insight modal
+            // New: Event listener for PDF generation button
+            generatePdfButton.addEventListener('click', generatePdfReport);
         });
     </script>
 </body>
