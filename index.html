@@ -1,17 +1,17 @@
 <!DOCTYPE html>
-<html lang="en" class="light"> <!-- Default to light mode, class will be toggled by JS -->
+<html lang="en" class="light">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Rice GI Dashboard</title> <!-- Updated project name in title -->
-    <!-- Tailwind CSS CDN for quick styling -->
+    <title id="dashboardTitle">Dashboard</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Chart.js CDN for charting -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <!-- html2canvas for capturing HTML elements as images -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
-    <!-- jsPDF for generating PDF documents -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    
+    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+    
     <style>
         /* Custom font for better aesthetics */
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
@@ -71,6 +71,11 @@
             justify-content: center;
             align-items: center;
             overflow: hidden; /* Hide overflow if content exceeds boundary during loading etc */
+        }
+        #leafletMap {
+            height: 50px; /* Adjusted height for the map container */
+            width: 50%;
+            border-radius: 8px; /* Optional: match card border radius */
         }
         .metric-value {
             font-size: 2.5rem;
@@ -215,22 +220,26 @@
     </style>
 </head>
 <body class="p-6">
-    <div id="dashboard-content" class="max-w-6xl mx-auto"> <!-- Added ID for html2canvas capture -->
+    <div id="dashboard-content" class="max-w-6xl mx-auto">
         <div class="flex justify-between items-center mb-4">
             <div class="header-content flex-grow">
-                <h1 class="text-4xl font-bold text-center text-gray-800 mb-2">Rice GI Dashboard</h1> <!-- Updated project name -->
+                <h1 id="mainDashboardTitle" class="text-4xl font-bold text-center text-gray-800 mb-2"></h1>
                 <p class="last-updated text-gray-600">Last Record Time: <span id="lastUpdatedTime">N/A</span></p>
             </div>
             <button id="themeToggle" class="ml-4 p-2 rounded-md shadow-sm">
-                <span id="themeIcon">☀️</span> <!-- Sun icon for light mode, moon for dark -->
+                <span id="themeIcon">☀️</span>
             </button>
         </div>
 
 
-        <!-- Filter Controls -->
         <div class="dashboard-card mb-8">
             <h2 class="text-xl font-semibold text-gray-700 mb-4">Data View Options</h2>
             <div class="flex flex-col md:flex-row items-center space-y-4 md:space-y-0 md:space-x-4">
+                <div>
+                    <label for="channelSelect" class="block text-sm font-medium text-gray-700 mb-1">Select Channel:</label>
+                    <select id="channelSelect" class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md">
+                    </select>
+                </div>
                 <div>
                     <label for="timeRange" class="block text-sm font-medium text-gray-700 mb-1">Select Time Range:</label>
                     <select id="timeRange" class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md">
@@ -242,7 +251,7 @@
                         <option value="last7days">Last 7 Days (Raw)</option>
                         <option value="hourlyAvg24">Hourly Averages (Last 24 Hours)</option>
                         <option value="dailyAvg7">Daily Averages (Last 7 Days)</option>
-                        <option value="custom">Custom Range</option> <!-- New option for custom range -->
+                        <option value="custom">Custom Range</option>
                     </select>
                 </div>
                 <div>
@@ -260,7 +269,6 @@
                  <button id="generatePdfReport" class="mt-auto px-4 py-2 bg-blue-600 text-white font-semibold rounded-md shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ml-2">Generate PDF Report</button>
             </div>
 
-            <!-- Custom Date Range Inputs (initially hidden) -->
             <div id="customRangeSection" class="custom-range-inputs">
                 <div>
                     <label for="startDate" class="block text-sm font-medium text-gray-700 mb-1">Start Date:</label>
@@ -274,85 +282,26 @@
              <p id="dateRangeError" class="text-red-500 text-sm mt-2 hidden">End date cannot be before start date.</p>
         </div>
 
+        <div class="flex flex-col lg:flex-row gap-6">
+            <div class="w-full lg:w-3/4 order-2 lg:order-1"> <div id="latestValuesDisplay" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-6 mb-8">
+                </div>
 
-        <!-- Latest Values Display -->
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-            <div class="dashboard-card text-center">
-                <p id="latestField1" class="metric-value">--</p>
-                <p class="metric-label">Atmosphere Temperature (°C)</p>
+                <div id="chartsSection" class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                </div>
             </div>
-            <div class="dashboard-card text-center">
-                <p id="latestField2" class="metric-value">--</p>
-                <p class="metric-label">Atmosphere Humidity (%)</p>
-            </div>
-            <div class="dashboard-card text-center">
-                <p id="latestField3" class="metric-value">--</p>
-                <p class="metric-label">Light Level (lux)</p>
-            </div>
-            <div class="dashboard-card text-center">
-                <p id="latestField4" class="metric-value">--</p>
-                <p class="metric-label">Soil Temperature (°C)</p>
-            </div>
-        </div>
 
-        <!-- Charts Section -->
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <div class="dashboard-card">
-                <h2 class="text-xl font-semibold text-gray-700 mb-2">Atmosphere Temperature (°C)</h2>
-                <p class="text-sm text-gray-600 mb-2">
-                    Min: <span id="minField1">N/A</span> | Max: <span id="maxField1">N/A</span> | Avg: <span id="avgField1">N/A</span>
-                </p>
-                <div class="chart-container">
-                    <div id="loadingField1" class="loading-overlay hidden">
-                        <div class="spinner"></div> Loading...
-                    </div>
-                    <canvas id="chartField1"></canvas>
-                </div>
-            </div>
-            <div class="dashboard-card">
-                <h2 class="text-xl font-semibold text-gray-700 mb-2">Atmosphere Humidity (%)</h2>
-                <p class="text-sm text-gray-600 mb-2">
-                    Min: <span id="minField2">N/A</span> | Max: <span id="maxField2">N/A</span> | Avg: <span id="avgField2">N/A</span>
-                </p>
-                <div class="chart-container">
-                    <div id="loadingField2" class="loading-overlay hidden">
-                        <div class="spinner"></div> Loading...
-                    </div>
-                    <canvas id="chartField2"></canvas>
-                </div>
-            </div>
-            <div class="dashboard-card">
-                <h2 class="text-xl font-semibold text-gray-700 mb-2">Light Level (lux)</h2>
-                <p class="text-sm text-gray-600 mb-2">
-                    Min: <span id="minField3">N/A</span> | Max: <span id="maxField3">N/A</span> | Avg: <span id="avgField3">N/A</span>
-                </p>
-                <div class="chart-container">
-                    <div id="loadingField3" class="loading-overlay hidden">
-                        <div class="spinner"></div> Loading...
-                    </div>
-                    <canvas id="chartField3"></canvas>
-                </div>
-            </div>
-            <div class="dashboard-card">
-                <h2 class="text-xl font-semibold text-gray-700 mb-2">Soil Temperature (°C)</h2>
-                <p class="text-sm text-gray-600 mb-2">
-                    Min: <span id="minField4">N/A</span> | Max: <span id="maxField4">N/A</span> | Avg: <span id="avgField4">N/A</span>
-                </p>
-                <div class="chart-container">
-                    <div id="loadingField4" class="loading-overlay hidden">
-                        <div class="spinner"></div> Loading...
-                    </div>
-                    <canvas id="chartField4"></canvas>
+            <div class="w-full lg:w-1/4 order-1 lg:order-2"> <div class="dashboard-card">
+                    <h2 class="text-xl font-semibold text-gray-700 mb-4">Rice GI Locations</h2>
+                    <div id="leafletMap" style="height: 300px; width: 100%;"></div>
                 </div>
             </div>
         </div>
     </div>
 
     <footer class="footer">
-        © 2025 Lunix Solutions. All rights reserved. <!-- Updated company name -->
+        © 2025 Lunix Solutions. All rights reserved.
     </footer>
 
-    <!-- Full page loading overlay for PDF generation -->
     <div id="pdfLoadingOverlay" class="hidden">
         <div class="spinner"></div>
         <p class="mt-2">Generating PDF Report...</p>
@@ -360,35 +309,111 @@
 
     <script>
         // IMPORTANT: Update this URL based on where your Node.js backend is running.
-        // If running locally: 'http://localhost:3000/api/thingspeak-data'
-        // If deployed (e.g., Heroku or Render): 'https://your-app-name.herokuapp.com/api/thingspeak-data' or 'https://your-app-name.onrender.com/api/thingspeak-data'
-        const BACKEND_URL = 'https://tshub.onrender.com/api/thingspeak-data';
+        const BACKEND_URL = 'http://localhost:3000/api/thingspeak-data';
 
         let chartInstances = {}; // Stores Chart.js instances
         let currentRefreshIntervalId; // Stores the ID of the current setInterval
+        let leafletMap; // Leaflet map instance
+        let leafletMarkers = {}; // Stores Leaflet marker instances
 
-        // Define which fields to display, their labels, and units
-        const fieldsToDisplay = [
-            { id: 1, label: 'Atmosphere Temperature', unit: '°C', elementId: 'chartField1', latestElementId: 'latestField1', minElementId: 'minField1', maxElementId: 'maxField1', avgElementId: 'avgField1' },
-            { id: 2, label: 'Atmosphere Humidity', unit: '%', elementId: 'chartField2', latestElementId: 'latestField2', minElementId: 'minField2', maxElementId: 'maxField2', avgElementId: 'avgField2' },
-            { id: 3, label: 'Light Level', unit: 'lux', elementId: 'chartField3', latestElementId: 'latestField3', minElementId: 'minField3', maxElementId: 'maxField3', avgElementId: 'avgField3' },
-            { id: 4, label: 'Soil Temperature', unit: '°C', elementId: 'chartField4', latestElementId: 'latestField4', minElementId: 'minField4', maxElementId: 'maxField4', avgElementId: 'avgField4' }
-        ];
+        // Define configuration for different ThingSpeak channels
+        const channelsConfig = {
+            '2958959': { // Original channel ID
+                name: 'Rice GI Location-1',
+                fields: [
+                    { id: 1, label: 'Soil Temperature', unit: '°C', color: '#EF4444' }, // Red-500
+                    { id: 2, label: 'Soil Moisture', unit: '%', color: '#3B82F6' }, // Blue-500
+                    { id: 3, label: 'Ambient Temperature', unit: '°C', color: '#F59E0B' }, // Amber-500
+                    { id: 4, label: 'Ambient Humidity', unit: '%', color: '#10B981' } // Green-500
+                ],
+                // Add geographical coordinates for Location-1
+                location: { lat: 13.705772, lng: 100.812585 } // Example: Bangkok center (adjust as needed)
+            },
+            '2974775': { // Updated channel ID with new name
+                name: 'Rice GI Location-2',
+                fields: [
+                    { id: 1, label: 'Atmosphere Temperature', unit: '°C', color: '#EF4444' }, // Red-500
+                    { id: 2, label: 'Atmosphere Humidity', unit: '%', color: '#3B82F6' }, // Blue-500
+                    { id: 3, label: 'Light Level', unit: 'lux', color: '#F59E0B' }, // Amber-500
+                    { id: 4, label: 'Soil Temperature', unit: '°C', color: '#10B981' } // Green-500
+                ],
+                // Add geographical coordinates for Location-2
+                location: { lat: 13.823185, lng: 100.608716 } // Example: North of Bangkok (adjust as needed)
+            }
+        };
+
+        let currentChannelId = '2958959'; // Default channel ID to load
+        let currentChannelConfig = channelsConfig[currentChannelId]; // Initialize with default channel config
 
         // Get references to the new elements
         const htmlElement = document.documentElement;
         const themeToggle = document.getElementById('themeToggle');
         const themeIcon = document.getElementById('themeIcon');
+        const mainDashboardTitle = document.getElementById('mainDashboardTitle');
+        const channelSelect = document.getElementById('channelSelect');
         const timeRangeSelect = document.getElementById('timeRange');
         const customRangeSection = document.getElementById('customRangeSection');
         const startDateInput = document.getElementById('startDate');
         const endDateInput = document.getElementById('endDate');
         const dateRangeError = document.getElementById('dateRangeError');
+        const latestValuesDisplay = document.getElementById('latestValuesDisplay');
+        const chartsSection = document.getElementById('chartsSection');
 
         // New references for PDF generation
         const generatePdfButton = document.getElementById('generatePdfReport');
         const pdfLoadingOverlay = document.getElementById('pdfLoadingOverlay');
         const dashboardContent = document.getElementById('dashboard-content');
+
+
+        /**
+         * Populates the channel selection dropdown based on channelsConfig.
+         */
+        function populateChannelSelect() {
+            for (const id in channelsConfig) {
+                const option = document.createElement('option');
+                option.value = id;
+                option.textContent = channelsConfig[id].name;
+                channelSelect.appendChild(option);
+            }
+            // Set the default selected channel
+            channelSelect.value = currentChannelId;
+        }
+
+        /**
+         * Dynamically generates the HTML for latest values and charts based on the current channel's fields.
+         */
+        function generateDashboardHTML() {
+            latestValuesDisplay.innerHTML = ''; // Clear previous content
+            chartsSection.innerHTML = ''; // Clear previous content
+
+            currentChannelConfig.fields.forEach(field => {
+                // Latest Value Card
+                const latestCard = `
+                    <div class="dashboard-card text-center">
+                        <p id="latestField${field.id}" class="metric-value">--</p>
+                        <p class="metric-label">${field.label} (${field.unit})</p>
+                    </div>
+                `;
+                latestValuesDisplay.insertAdjacentHTML('beforeend', latestCard);
+
+                // Chart Card
+                const chartCard = `
+                    <div class="dashboard-card">
+                        <h2 class="text-xl font-semibold text-gray-700 mb-2">${field.label} (${field.unit})</h2>
+                        <p class="text-sm text-gray-600 mb-2">
+                            Min: <span id="minField${field.id}">N/A</span> | Max: <span id="maxField${field.id}">N/A</span> | Avg: <span id="avgField${field.id}">N/A</span>
+                        </p>
+                        <div class="chart-container">
+                            <div id="loadingField${field.id}" class="loading-overlay hidden">
+                                <div class="spinner"></div> Loading...
+                            </div>
+                            <canvas id="chartField${field.id}"></canvas>
+                        </div>
+                    </div>
+                `;
+                chartsSection.insertAdjacentHTML('beforeend', chartCard);
+            });
+        }
 
 
         /**
@@ -404,7 +429,7 @@
                 htmlElement.className = 'light';
             }
             updateThemeIcon();
-            updateChartColors(); // Update chart colors after theme is set
+            // Chart colors are updated in updateChart when it's called
         }
 
         /**
@@ -444,8 +469,8 @@
             const gridColor = getComputedStyle(document.documentElement).getPropertyValue('--chart-label-color').trim(); // Grid color now matches label color for harmony
 
 
-            fieldsToDisplay.forEach(field => {
-                const canvasId = field.elementId;
+            currentChannelConfig.fields.forEach(field => {
+                const canvasId = `chartField${field.id}`;
                 if (chartInstances[canvasId]) {
                     const chart = chartInstances[canvasId];
                     // Update chart options if they exist
@@ -459,7 +484,7 @@
                         chart.options.scales.y.grid.color = gridColor;
                         chart.options.scales.y.title.color = titleColor; // Use titleColor for axis titles
                     }
-                    if (chart.options.plugins && chart.options.plugins.legend && chartInstance[canvasId].options.plugins.legend.labels) {
+                    if (chart.options.plugins && chart.options.plugins.legend && chartInstances[canvasId].options.plugins.legend.labels) {
                          chartInstances[canvasId].options.plugins.legend.labels.font.color = titleColor;
                     }
                     chart.update();
@@ -524,8 +549,8 @@
          * @param {boolean} show - True to show loading overlays, false to hide.
          */
         function toggleLoadingOverlays(show) {
-            fieldsToDisplay.forEach(field => {
-                const loadingOverlay = document.getElementById(`loading${field.id}`);
+            currentChannelConfig.fields.forEach(field => {
+                const loadingOverlay = document.getElementById(`loadingField${field.id}`);
                 if (loadingOverlay) {
                     if (show) {
                         loadingOverlay.classList.remove('hidden');
@@ -542,6 +567,8 @@
          * @returns {Promise<Object|null>} The ThingSpeak data or null if an error occurs.
          */
         async function fetchThingSpeakData(params = {}) {
+            // Add the current channel ID to the parameters
+            params.channelId = currentChannelId;
             const query = new URLSearchParams(params).toString();
             toggleLoadingOverlays(true); // Show loading overlays before fetching
             try {
@@ -554,14 +581,25 @@
                 return data;
             } catch (error) {
                 console.error("Error fetching data from backend:", error);
-                fieldsToDisplay.forEach(field => {
-                    document.getElementById(field.latestElementId).textContent = "Error";
-                    // Clear min/max/avg on error
-                    document.getElementById(field.minElementId).textContent = "N/A";
-                    document.getElementById(field.maxElementId).textContent = "N/A";
-                    document.getElementById(field.avgElementId).textContent = "N/A";
+                currentChannelConfig.fields.forEach(field => {
+                    const latestValueElement = document.getElementById(`latestField${field.id}`);
+                    if (latestValueElement) {
+                        latestValueElement.textContent = "Error";
+                    }
+                    
+                    const minElement = document.getElementById(`minField${field.id}`);
+                    if (minElement) minElement.textContent = "N/A";
+                    
+                    const maxElement = document.getElementById(`maxField${field.id}`);
+                    if (maxElement) maxElement.textContent = "N/A";
+                    
+                    const avgElement = document = document.getElementById(`avgField${field.id}`);
+                    if (avgElement) avgElement.textContent = "N/A";
                 });
-                document.getElementById('lastUpdatedTime').textContent = "Error fetching data!";
+                const lastUpdatedTimeElement = document.getElementById('lastUpdatedTime');
+                if (lastUpdatedTimeElement) {
+                    lastUpdatedTimeElement.textContent = "Error fetching data!";
+                }
                 return null;
             } finally {
                 toggleLoadingOverlays(false); // Hide loading overlays after fetch (success or error)
@@ -604,7 +642,7 @@
                     chartInstances[canvasId].options.scales.y.title.color = titleColor;
                 }
                 if (chartInstances[canvasId].options.plugins && chartInstances[canvasId].options.plugins.legend && chartInstances[canvasId].options.plugins.legend.labels) {
-                     chartInstances[canvasId].options.plugins.legend.labels.font.color = titleColor;
+                         chartInstances[canvasId].options.plugins.legend.labels.font.color = titleColor;
                 }
                 chartInstances[canvasId].update();
             } else {
@@ -678,8 +716,26 @@
 
         /**
          * Main function to update the entire dashboard.
+         * @param {string} [selectedChannelId] - Optional; if provided, switches to this channel.
          */
-        async function updateDashboard() {
+        async function updateDashboard(selectedChannelId) {
+            if (selectedChannelId && channelsConfig[selectedChannelId]) {
+                currentChannelId = selectedChannelId;
+                currentChannelConfig = channelsConfig[currentChannelId];
+                mainDashboardTitle.textContent = currentChannelConfig.name; // Update dashboard title
+                generateDashboardHTML(); // Regenerate HTML for current channel
+                // Destroy existing chart instances before creating new ones for the new channel
+                for (const chartId in chartInstances) {
+                    if (chartInstances[chartId]) {
+                        chartInstances[chartId].destroy();
+                    }
+                }
+                chartInstances = {}; // Clear the chart instances object
+            } else {
+                mainDashboardTitle.textContent = currentChannelConfig.name; // Ensure title is set on initial load/filter change
+            }
+
+
             const selectedRange = timeRangeSelect.value;
             let params = {};
             dateRangeError.classList.add('hidden'); // Hide any previous error
@@ -722,7 +778,7 @@
                 const feeds = data.feeds;
 
                 const fieldData = {};
-                fieldsToDisplay.forEach(field => {
+                currentChannelConfig.fields.forEach(field => {
                     fieldData[field.id] = {
                         timestamps: [],
                         values: []
@@ -738,121 +794,131 @@
                         formattedTime = createdAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
                     }
                     
-                    fieldsToDisplay.forEach(field => { 
-                        fieldData[field.id].timestamps.push(formattedTime);
+                    currentChannelConfig.fields.forEach(field => { 
                         const fieldValue = parseFloat(feed[`field${field.id}`]);
+                        fieldData[field.id].timestamps.push(formattedTime);
                         fieldData[field.id].values.push(isNaN(fieldValue) ? null : fieldValue);
                     });
                 });
 
-                fieldsToDisplay.forEach(field => {
-                    const latestValueElement = document.getElementById(field.latestElementId);
-                    // Check if element exists before trying to access its properties
-                    if (!latestValueElement) {
-                        console.error(`Element with ID '${field.latestElementId}' not found.`);
-                        return; // Skip to the next field if the element is not found
-                    }
+                document.getElementById('lastUpdatedTime').textContent = new Date(feeds[feeds.length - 1].created_at).toLocaleString();
 
-                    const values = fieldData[field.id].values.filter(v => v !== null); // Filter out nulls for calculations
+                currentChannelConfig.fields.forEach(field => {
+                    const fieldValues = fieldData[field.id].values.filter(v => v !== null); // Filter out nulls for calculations
 
-                    if (values.length > 0) {
-                        latestValueElement.textContent = `${values[values.length - 1].toFixed(2)} ${field.unit}`;
-                        
-                        // Calculate Min, Max, Avg
-                        const minVal = Math.min(...values);
-                        const maxVal = Math.max(...values);
-                        const sumVal = values.reduce((acc, val) => acc + val, 0);
-                        const avgVal = sumVal / values.length;
+                    const latestValue = fieldValues.length > 0 ? fieldValues[fieldValues.length - 1].toFixed(2) : '--';
+                    document.getElementById(`latestField${field.id}`).textContent = latestValue;
 
-                        document.getElementById(field.minElementId).textContent = `${minVal.toFixed(2)} ${field.unit}`;
-                        document.getElementById(field.maxElementId).textContent = `${maxVal.toFixed(2)} ${field.unit}`;
-                        document.getElementById(field.avgElementId).textContent = `${avgVal.toFixed(2)} ${field.unit}`;
+                    const min = fieldValues.length > 0 ? Math.min(...fieldValues).toFixed(2) : 'N/A';
+                    const max = fieldValues.length > 0 ? Math.max(...fieldValues).toFixed(2) : 'N/A';
+                    const avg = fieldValues.length > 0 ? (fieldValues.reduce((sum, val) => sum + val, 0) / fieldValues.length).toFixed(2) : 'N/A';
 
-                    } else {
-                        latestValueElement.textContent = "N/A";
-                        document.getElementById(field.minElementId).textContent = "N/A";
-                        document.getElementById(field.maxElementId).textContent = "N/A";
-                        document.getElementById(field.avgElementId).textContent = "N/A";
-                    }
-
-                    let color;
-                    switch(field.id) {
-                        case 1: color = '#EF4444'; break; // Red-500
-                        case 2: color = '#3B82F6'; break; // Blue-500
-                        case 3: color = '#F59E0B'; break; // Amber-500
-                        case 4: color = '#10B981'; break; // Green-500
-                        default: color = '#6B7280'; // Gray-500
-                    }
+                    document.getElementById(`minField${field.id}`).textContent = min;
+                    document.getElementById(`maxField${field.id}`).textContent = max;
+                    document.getElementById(`avgField${field.id}`).textContent = avg;
 
                     updateChart(
-                        field.elementId,
+                        `chartField${field.id}`,
                         field.label,
                         fieldData[field.id].timestamps,
                         fieldData[field.id].values,
-                        color,
+                        field.color,
                         field.unit
                     );
                 });
-
-                const lastRecordTime = new Date(feeds[feeds.length - 1].created_at).toLocaleString();
-                document.getElementById('lastUpdatedTime').textContent = lastRecordTime;
-
             } else {
-                console.warn("No data or invalid data structure received from ThingSpeak.");
-                fieldsToDisplay.forEach(field => {
-                    document.getElementById(field.latestElementId).textContent = "No Data";
-                    document.getElementById(field.minElementId).textContent = "N/A";
-                    document.getElementById(field.maxElementId).textContent = "N/A";
-                    document.getElementById(field.avgElementId).textContent = "N/A";
-                    if (chartInstances[field.elementId]) {
-                        chartInstances[field.elementId].data.labels = [];
-                        chartInstances[field.elementId].data.datasets[0].data = [];
-                        chartInstances[field.elementId].update();
+                // No data received or feeds array is empty
+                document.getElementById('lastUpdatedTime').textContent = "No data available";
+                currentChannelConfig.fields.forEach(field => {
+                    document.getElementById(`latestField${field.id}`).textContent = "--";
+                    document.getElementById(`minField${field.id}`).textContent = "N/A";
+                    document.getElementById(`maxField${field.id}`).textContent = "N/A";
+                    document.getElementById(`avgField${field.id}`).textContent = "N/A";
+                    // Clear or destroy charts if no data
+                    const canvasId = `chartField${field.id}`;
+                    if (chartInstances[canvasId]) {
+                        chartInstances[canvasId].destroy();
+                        delete chartInstances[canvasId];
                     }
                 });
-                document.getElementById('lastUpdatedTime').textContent = "No records found or failed to load data!";
+                console.warn("No feeds data available for the selected channel and time range.");
             }
         }
 
         /**
-         * Sets the automatic refresh interval for the dashboard.
+         * Sets or clears the automatic refresh interval for dashboard data.
          */
         function setRefreshInterval() {
             if (currentRefreshIntervalId) {
-                clearInterval(currentRefreshIntervalId);
+                clearInterval(currentRefreshIntervalId); // Clear any existing interval
             }
+
             const intervalSeconds = parseInt(document.getElementById('refreshInterval').value);
-            // Do not set refresh for custom range as it's a fixed historical view
-            if (timeRangeSelect.value !== 'custom') {
-                 currentRefreshIntervalId = setInterval(() => updateDashboard(), intervalSeconds * 1000);
-                 console.log(`Dashboard will refresh every ${intervalSeconds} seconds.`);
-            } else {
-                 console.log("Auto-refresh paused for custom date range.");
+
+            if (intervalSeconds > 0) {
+                currentRefreshIntervalId = setInterval(() => {
+                    updateDashboard(); // Call updateDashboard without changing channel
+                }, intervalSeconds * 1000);
             }
         }
 
         /**
-         * Generates a PDF report of the dashboard content.
+         * Initializes the Leaflet map and adds markers.
+         */
+        function initLeafletMap() {
+            const defaultCenter = [13.77, 100.5]; // A central point for Thailand/Bangkok [latitude, longitude]
+            leafletMap = L.map('leafletMap').setView(defaultCenter, 10); // Adjust zoom level as needed
+
+            // Add an OpenStreetMap tile layer
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+            }).addTo(leafletMap);
+
+            addLeafletMarkersToMap();
+        }
+
+        /**
+         * Adds markers for each configured location to the Leaflet map.
+         */
+        function addLeafletMarkersToMap() {
+            for (const channelId in channelsConfig) {
+                const config = channelsConfig[channelId];
+                if (config.location) {
+                    const marker = L.marker([config.location.lat, config.location.lng])
+                        .addTo(leafletMap)
+                        .bindPopup(config.name); // Optional: show name on hover/click
+
+                    leafletMarkers[channelId] = marker; // Store marker instance
+
+                    marker.on('click', () => {
+                        // Update the channelSelect dropdown and trigger dashboard update
+                        document.getElementById('channelSelect').value = channelId;
+                        updateDashboard(channelId);
+                        setRefreshInterval(); // Reset interval for new channel
+                    });
+                }
+            }
+        }
+
+        /**
+         * Generates a PDF report of the current dashboard content.
          */
         async function generatePdfReport() {
             pdfLoadingOverlay.classList.add('show'); // Show loading overlay
-
-            // Temporarily adjust body padding for html2canvas capture to avoid clipping issues if any
-            const originalPadding = document.body.style.padding;
-            document.body.style.padding = '20px'; // Add some temporary padding
-
             try {
+                // Ensure chart rendering is complete before capturing
+                // You might need a small delay or a more robust way to ensure charts are drawn
+                await new Promise(resolve => setTimeout(resolve, 500)); // Small delay
+
                 const canvas = await html2canvas(dashboardContent, {
-                    scale: 2, // Increase scale for better quality
-                    useCORS: true, // Needed if you have images from different origins, though unlikely for this dashboard
-                    logging: true, // Enable logging for debugging html2canvas issues
-                    windowWidth: document.body.scrollWidth, // Capture full scrollable width
-                    windowHeight: document.body.scrollHeight // Capture full scrollable height
+                    scale: 5, // Increase scale for better resolution in PDF
+                    useCORS: true, // If you have images/resources from other origins
+                    // Add any other options as needed
                 });
 
                 const imgData = canvas.toDataURL('image/png');
                 const { jsPDF } = window.jspdf;
-                const pdf = new jsPDF('p', 'mm', 'a4'); // 'p' for portrait, 'mm' for millimeters, 'a4' size
+                const pdf = new jsPDF('p', 'mm', 'a4'); // 'p' portrait, 'mm' units, 'a4' size
 
                 const imgWidth = 210; // A4 width in mm
                 const pageHeight = 297; // A4 height in mm
@@ -860,7 +926,6 @@
                 let heightLeft = imgHeight;
                 let position = 0;
 
-                // Add image to PDF, handling multiple pages if content is too long
                 pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
                 heightLeft -= pageHeight;
 
@@ -871,34 +936,38 @@
                     heightLeft -= pageHeight;
                 }
 
-                const currentDateTime = new Date().toISOString().slice(0, 19).replace(/:/g, '-');
-                pdf.save(`weather_report_${currentDateTime}.pdf`);
-
+                pdf.save('ThingSpeak_Dashboard_Report.pdf');
             } catch (error) {
                 console.error("Error generating PDF:", error);
-                // In a real app, you might show a user-friendly error message here
                 alert("Failed to generate PDF report. Please try again.");
             } finally {
                 pdfLoadingOverlay.classList.remove('show'); // Hide loading overlay
-                document.body.style.padding = originalPadding; // Restore original padding
             }
         }
 
 
         // Event Listeners
         document.addEventListener('DOMContentLoaded', () => {
+            populateChannelSelect(); // Populate the dropdown first
             setThemeFromLocalStorage(); // Set theme on initial load
             setDefaultCustomRange(); // Set initial default values for custom range inputs
             toggleCustomRangeInputs(); // Set initial visibility based on default selected option
-            updateDashboard(); // Initial load
+            updateDashboard(currentChannelId); // Initial load with the default channel
             setRefreshInterval(); // Set initial refresh interval
+
+            // Initialize Leaflet Map
+            initLeafletMap();
 
             themeToggle.addEventListener('click', toggleTheme); // Toggle theme on button click
             
+            channelSelect.addEventListener('change', (event) => {
+                updateDashboard(event.target.value); // Update dashboard when channel changes
+                setRefreshInterval(); // Reset interval for new channel
+            });
+
             timeRangeSelect.addEventListener('change', () => {
                 toggleCustomRangeInputs();
-                // When time range changes, trigger an update immediately
-                updateDashboard();
+                updateDashboard(); // Update immediately when time range changes
                 setRefreshInterval(); // Reset interval, potentially pausing it for 'custom'
             });
 
@@ -908,7 +977,6 @@
             });
             document.getElementById('refreshInterval').addEventListener('change', setRefreshInterval);
 
-            // New: Event listener for PDF generation button
             generatePdfButton.addEventListener('click', generatePdfReport);
         });
     </script>
