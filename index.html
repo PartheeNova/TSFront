@@ -6,16 +6,13 @@
     <title id="dashboardTitle">Dashboard</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-    
     <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
-    
+
     <style>
         /* Custom font for better aesthetics */
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
-        
+
         /* Basic theme variables and transitions */
         :root {
             --bg-color: #f0f2f5;
@@ -57,7 +54,7 @@
         }
         .dashboard-card {
             background-color: var(--card-bg-color);
-            border-radius: 12px;
+            border-radius: 5px;
             box-shadow: 0 4px 12px var(--shadow-color);
             padding: 1.5rem;
             margin-bottom: 1.5rem;
@@ -73,9 +70,9 @@
             overflow: hidden; /* Hide overflow if content exceeds boundary during loading etc */
         }
         #leafletMap {
-            height: 50px; /* Adjusted height for the map container */
-            width: 50%;
-            border-radius: 8px; /* Optional: match card border radius */
+            height: 300px; /* Adjusted height for the map container */
+            width: 100%;
+            border-radius: 10px; /* Optional: match card border radius */
         }
         .metric-value {
             font-size: 2.5rem;
@@ -191,36 +188,80 @@
             transition: color 0.3s ease, border-color 0.3s ease;
         }
 
-        /* Full page loading overlay for PDF generation */
-        #pdfLoadingOverlay {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background-color: rgba(0, 0, 0, 0.7); /* Darker overlay */
+        /* Login page styles */
+        #login-page {
             display: flex;
-            flex-direction: column;
             justify-content: center;
             align-items: center;
+            min-height: 100vh;
+            background-color: var(--bg-color);
+            flex-direction: column;
+        }
+        #login-form-card {
+            background-color: var(--card-bg-color);
+            padding: 2.5rem;
+            border-radius: 8px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+            width: 100%;
+            max-width: 400px;
+        }
+        #login-form-card input[type="text"],
+        #login-form-card input[type="password"] {
+            width: 100%;
+            padding: 0.75rem;
+            margin-bottom: 1rem;
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            background-color: var(--bg-color); /* Make input background match body bg for consistency */
+            color: var(--text-color-primary); /* Ensure text is readable */
+            transition: border-color 0.3s ease, background-color 0.3s ease;
+        }
+        #login-form-card input[type="text"]:focus,
+        #login-form-card input[type="password"]:focus {
+            outline: none;
+            border-color: #6366F1; /* Indigo-500 */
+            box-shadow: 0 0 0 1px #6366F1;
+        }
+        #login-form-card button {
+            width: 100%;
+            padding: 0.75rem;
+            background-color: #4F46E5; /* Indigo-600 */
             color: white;
-            font-size: 1.5rem;
-            z-index: 2000; /* Ensure it's on top of everything */
-            transition: opacity 0.3s ease-in-out, visibility 0.3s ease-in-out;
-            opacity: 0;
-            visibility: hidden;
+            border-radius: 4px;
+            font-weight: 600;
+            transition: background-color 0.2s ease;
         }
-        #pdfLoadingOverlay.show {
-            opacity: 1;
-            visibility: visible;
+        #login-form-card button:hover {
+            background-color: #4338CA; /* Indigo-700 */
         }
-        #pdfLoadingOverlay .spinner {
-            border-top: 4px solid #fff; /* White spinner for dark background */
+        #login-error-message {
+            color: #EF4444; /* Red-500 */
+            margin-top: 1rem;
+            text-align: center;
+            font-weight: 500;
         }
     </style>
 </head>
 <body class="p-6">
-    <div id="dashboard-content" class="max-w-6xl mx-auto">
+    <div id="login-page">
+        <div id="login-form-card">
+            <h2 class="text-2xl font-bold text-center mb-6 text-gray-800">Login to Dashboard</h2>
+            <form id="login-form">
+                <div class="mb-4">
+                    <label for="username" class="block text-gray-700 text-sm font-bold mb-2">Username:</label>
+                    <input type="text" id="username" name="username" required>
+                </div>
+                <div class="mb-6">
+                    <label for="password" class="block text-gray-700 text-sm font-bold mb-2">Password:</label>
+                    <input type="password" id="password" name="password" required>
+                </div>
+                <button type="submit">Login</button>
+                <div id="login-error-message" class="hidden">Invalid username or password.</div>
+            </form>
+        </div>
+    </div>
+
+    <div id="dashboard-content" class="max-w-6xl mx-auto hidden">
         <div class="flex justify-between items-center mb-4">
             <div class="header-content flex-grow">
                 <h1 id="mainDashboardTitle" class="text-4xl font-bold text-center text-gray-800 mb-2"></h1>
@@ -265,57 +306,39 @@
                         <option value="3600">1 Hour</option>
                     </select>
                 </div>
-                 <button id="applyFilter" class="mt-auto px-4 py-2 bg-indigo-600 text-white font-semibold rounded-md shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2">Apply</button>
-                 <button id="generatePdfReport" class="mt-auto px-4 py-2 bg-blue-600 text-white font-semibold rounded-md shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ml-2">Generate PDF Report</button>
+                <button id="applyFilter" class="mt-auto px-4 py-2 bg-indigo-600 text-white font-semibold rounded-md shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2">Apply</button>
             </div>
-
             <div id="customRangeSection" class="custom-range-inputs">
-                <div>
-                    <label for="startDate" class="block text-sm font-medium text-gray-700 mb-1">Start Date:</label>
-                    <input type="datetime-local" id="startDate" class="mt-1 block w-full pl-3 pr-3 py-2 text-base border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
-                </div>
-                <div>
-                    <label for="endDate" class="block text-sm font-medium text-gray-700 mb-1">End Date:</label>
-                    <input type="datetime-local" id="endDate" class="mt-1 block w-full pl-3 pr-3 py-2 text-base border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
-                </div>
+                <label for="startDate">Start Date/Time:</label>
+                <input type="datetime-local" id="startDate">
+                <label for="endDate">End Date/Time:</label>
+                <input type="datetime-local" id="endDate">
             </div>
-             <p id="dateRangeError" class="text-red-500 text-sm mt-2 hidden">End date cannot be before start date.</p>
+            <div id="dateRangeError" class="text-red-500 text-sm mt-2 hidden"></div>
         </div>
 
-        <div class="flex flex-col lg:flex-row gap-6">
-            <div class="w-full lg:w-3/4 order-2 lg:order-1"> <div id="latestValuesDisplay" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-6 mb-8">
-                </div>
-
-                <div id="chartsSection" class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                </div>
+        <div id="latestValuesDisplay" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
             </div>
 
-            <div class="w-full lg:w-1/4 order-1 lg:order-2"> <div class="dashboard-card">
-                    <h2 class="text-xl font-semibold text-gray-700 mb-4">Rice GI Locations</h2>
-                    <div id="leafletMap" style="height: 300px; width: 100%;"></div>
-                </div>
+        <div id="chartsSection" class="grid grid-cols-1 lg:grid-cols-2 gap-6">
             </div>
+
+        <div class="dashboard-card mb-8">
+            <h2 class="text-xl font-semibold text-gray-700 mb-4">Device Location</h2>
+            <div id="leafletMap" class="h-64 rounded-lg shadow-inner"></div>
         </div>
-    </div>
-
-    <footer class="footer">
-        © 2025 Lunix Solutions. All rights reserved.
-    </footer>
-
-    <div id="pdfLoadingOverlay" class="hidden">
-        <div class="spinner"></div>
-        <p class="mt-2">Generating PDF Report...</p>
     </div>
 
     <script>
         // IMPORTANT: Update this URL based on where your Node.js backend is running.
-        //const BACKEND_URL = 'http://localhost:3000/api/thingspeak-data';
-        const BACKEND_URL = 'https://tshub.onrender.com/api/thingspeak-data';
+        // const BACKEND_URL = 'http://localhost:3000/api/thingspeak-data';
+        const BACKEND_URL = 'https://tshub.onrender.com/api/thingspeak-data'; // URL of your Node.js backend
 
         let chartInstances = {}; // Stores Chart.js instances
         let currentRefreshIntervalId; // Stores the ID of the current setInterval
         let leafletMap; // Leaflet map instance
         let leafletMarkers = {}; // Stores Leaflet marker instances
+        let dashboardFeaturesInitialized = false; // Flag to ensure features are initialized only once
 
         // Define configuration for different ThingSpeak channels
         const channelsConfig = {
@@ -325,7 +348,9 @@
                     { id: 1, label: 'Soil Temperature', unit: '°C', color: '#EF4444' }, // Red-500
                     { id: 2, label: 'Soil Moisture', unit: '%', color: '#3B82F6' }, // Blue-500
                     { id: 3, label: 'Ambient Temperature', unit: '°C', color: '#F59E0B' }, // Amber-500
-                    { id: 4, label: 'Ambient Humidity', unit: '%', color: '#10B981' } // Green-500
+                    { id: 4, label: 'Ambient Humidity', unit: '%', color: '#10B981' }, // Green-500
+                    { id: 5, label: 'Illumination', unit: 'lux', color: '#8A2BE2' }, // Purple/BlueViolet
+                    { id: 6, label: 'Rainfall', unit: 'mm', color: '#5A5A5A' } // New Rainfall field with a distinct color
                 ],
                 // Add geographical coordinates for Location-1
                 location: { lat: 13.705772, lng: 100.812585 } // Example: Bangkok center (adjust as needed)
@@ -336,7 +361,9 @@
                     { id: 1, label: 'Atmosphere Temperature', unit: '°C', color: '#EF4444' }, // Red-500
                     { id: 2, label: 'Atmosphere Humidity', unit: '%', color: '#3B82F6' }, // Blue-500
                     { id: 3, label: 'Light Level', unit: 'lux', color: '#F59E0B' }, // Amber-500
-                    { id: 4, label: 'Soil Temperature', unit: '°C', color: '#10B981' } // Green-500
+                    { id: 4, label: 'Soil Temperature', unit: '°C', color: '#10B981' }, // Green-500
+                    { id: 5, label: 'Illumination', unit: 'lux', color: '#8A2BE2' }, // Purple/BlueViolet
+                    { id: 6, label: 'Rainfall', unit: 'mm', color: '#5A5A5A' } // New Rainfall field with a distinct color
                 ],
                 // Add geographical coordinates for Location-2
                 location: { lat: 13.823185, lng: 100.608716 } // Example: North of Bangkok (adjust as needed)
@@ -356,13 +383,16 @@
         const customRangeSection = document.getElementById('customRangeSection');
         const startDateInput = document.getElementById('startDate');
         const endDateInput = document.getElementById('endDate');
-        const dateRangeError = document.getElementById('dateRangeError');
+        const dateRangeError = document.getElementById('dateRangeError'); // Reference to the new error message div
         const latestValuesDisplay = document.getElementById('latestValuesDisplay');
         const chartsSection = document.getElementById('chartsSection');
 
-        // New references for PDF generation
-        const generatePdfButton = document.getElementById('generatePdfReport');
-        const pdfLoadingOverlay = document.getElementById('pdfLoadingOverlay');
+        // New references for login
+        const loginPage = document.getElementById('login-page');
+        const loginForm = document.getElementById('login-form');
+        const usernameInput = document.getElementById('username');
+        const passwordInput = document.getElementById('password');
+        const loginErrorMessage = document.getElementById('login-error-message');
         const dashboardContent = document.getElementById('dashboard-content');
 
 
@@ -370,6 +400,8 @@
          * Populates the channel selection dropdown based on channelsConfig.
          */
         function populateChannelSelect() {
+            if (!channelSelect) { console.error("ERROR: channelSelect element not found."); return; }
+            channelSelect.innerHTML = ''; // Clear previous content
             for (const id in channelsConfig) {
                 const option = document.createElement('option');
                 option.value = id;
@@ -384,6 +416,9 @@
          * Dynamically generates the HTML for latest values and charts based on the current channel's fields.
          */
         function generateDashboardHTML() {
+            if (!latestValuesDisplay) { console.error("ERROR: latestValuesDisplay element not found."); return; }
+            if (!chartsSection) { console.error("ERROR: chartsSection element not found."); return; }
+
             latestValuesDisplay.innerHTML = ''; // Clear previous content
             chartsSection.innerHTML = ''; // Clear previous content
 
@@ -452,6 +487,7 @@
          * Updates the theme icon based on the current theme.
          */
         function updateThemeIcon() {
+            if (!themeIcon) { console.error("ERROR: themeIcon element not found."); return; }
             if (htmlElement.classList.contains('dark')) {
                 themeIcon.textContent = '🌙'; // Moon icon for dark mode
             } else {
@@ -517,6 +553,9 @@
          * Sets start date to 24 hours ago, end date to now, in local timezone.
          */
         function setDefaultCustomRange() {
+            if (!startDateInput) { console.error("ERROR: startDateInput element not found."); return; }
+            if (!endDateInput) { console.error("ERROR: endDateInput element not found."); return; }
+
             const now = new Date();
             const twentyFourHoursAgo = new Date(now.getTime() - (24 * 60 * 60 * 1000));
 
@@ -534,6 +573,10 @@
          * Toggles visibility of custom date range inputs and manages defaults.
          */
         function toggleCustomRangeInputs() {
+            if (!timeRangeSelect) { console.error("ERROR: timeRangeSelect element not found."); return; }
+            if (!customRangeSection) { console.error("ERROR: customRangeSection element not found."); return; }
+            if (!dateRangeError) { console.error("ERROR: dateRangeError element not found."); return; }
+
             if (timeRangeSelect.value === 'custom') {
                 customRangeSection.style.display = 'flex'; // Show
                 if (!startDateInput.value || !endDateInput.value) { // Set defaults if empty
@@ -541,7 +584,7 @@
                 }
             } else {
                 customRangeSection.style.display = 'none'; // Hide
-                dateRangeError.classList.add('hidden'); // Hide error message
+                dateRangeError.classList.add('hidden'); // Hide any previous error
             }
         }
 
@@ -568,12 +611,15 @@
          * @returns {Promise<Object|null>} The ThingSpeak data or null if an error occurs.
          */
         async function fetchThingSpeakData(params = {}) {
-            // Add the current channel ID to the parameters
             params.channelId = currentChannelId;
             const query = new URLSearchParams(params).toString();
+            const url = `${BACKEND_URL}?${query}`;
+            
+            console.log("LOG: Fetching data from URL:", url);
+
             toggleLoadingOverlays(true); // Show loading overlays before fetching
             try {
-                const response = await fetch(`${BACKEND_URL}?${query}`);
+                const response = await fetch(url);
                 if (!response.ok) {
                     const errorText = await response.text();
                     throw new Error(`HTTP error! status: ${response.status}, message: ${errorText}`);
@@ -581,20 +627,17 @@
                 const data = await response.json();
                 return data;
             } catch (error) {
-                console.error("Error fetching data from backend:", error);
+                console.error("ERROR: Error fetching data from backend:", error);
                 currentChannelConfig.fields.forEach(field => {
                     const latestValueElement = document.getElementById(`latestField${field.id}`);
                     if (latestValueElement) {
                         latestValueElement.textContent = "Error";
                     }
-                    
                     const minElement = document.getElementById(`minField${field.id}`);
                     if (minElement) minElement.textContent = "N/A";
-                    
                     const maxElement = document.getElementById(`maxField${field.id}`);
                     if (maxElement) maxElement.textContent = "N/A";
-                    
-                    const avgElement = document = document.getElementById(`avgField${field.id}`);
+                    const avgElement = document.getElementById(`avgField${field.id}`);
                     if (avgElement) avgElement.textContent = "N/A";
                 });
                 const lastUpdatedTimeElement = document.getElementById('lastUpdatedTime');
@@ -617,7 +660,12 @@
          * @param {string} unit - The unit of measurement for the Y-axis label.
          */
         function updateChart(canvasId, label, timestamps, dataValues, borderColor, unit) {
-            const ctx = document.getElementById(canvasId).getContext('2d');
+            const canvas = document.getElementById(canvasId);
+            if (!canvas) {
+                console.error(`ERROR: Canvas element with ID ${canvasId} not found for chart.`);
+                return;
+            }
+            const ctx = canvas.getContext('2d');
 
             // Dynamically get colors for Chart.js elements from CSS variables
             const titleColor = getComputedStyle(document.documentElement).getPropertyValue('--chart-title-color').trim();
@@ -720,129 +768,156 @@
          * @param {string} [selectedChannelId] - Optional; if provided, switches to this channel.
          */
         async function updateDashboard(selectedChannelId) {
-            if (selectedChannelId && channelsConfig[selectedChannelId]) {
-                currentChannelId = selectedChannelId;
-                currentChannelConfig = channelsConfig[currentChannelId];
-                mainDashboardTitle.textContent = currentChannelConfig.name; // Update dashboard title
-                generateDashboardHTML(); // Regenerate HTML for current channel
-                // Destroy existing chart instances before creating new ones for the new channel
-                for (const chartId in chartInstances) {
-                    if (chartInstances[chartId]) {
-                        chartInstances[chartId].destroy();
+            console.log("LOG: Entering updateDashboard. Selected Channel ID:", selectedChannelId);
+            try {
+                if (selectedChannelId && channelsConfig[selectedChannelId]) {
+                    currentChannelId = selectedChannelId;
+                    currentChannelConfig = channelsConfig[currentChannelId];
+                    mainDashboardTitle.textContent = currentChannelConfig.name; // Update dashboard title
+                    generateDashboardHTML(); // Regenerate HTML for current channel
+                    // Destroy existing chart instances before creating new ones for the new channel
+                    for (const chartId in chartInstances) {
+                        if (chartInstances[chartId]) {
+                            chartInstances[chartId].destroy();
+                        }
+                    }
+                    chartInstances = {}; // Clear the chart instances object
+                } else {
+                    mainDashboardTitle.textContent = currentChannelConfig.name; // Ensure title is set on initial load/filter change
+                }
+
+
+                const selectedRange = timeRangeSelect.value;
+                let params = {};
+                dateRangeError.classList.add('hidden'); // Hide any previous error
+
+                if (selectedRange === 'custom') {
+                    const start = new Date(startDateInput.value);
+                    const end = new Date(endDateInput.value);
+
+                    if (isNaN(start.getTime()) || isNaN(end.getTime())) {
+                        dateRangeError.textContent = "Please select valid start and end dates.";
+                        dateRangeError.classList.remove('hidden');
+                        return; // Prevent update if dates are invalid
+                    }
+                    if (start.getTime() >= end.getTime()) {
+                        dateRangeError.textContent = "End date cannot be before or same as start date.";
+                        dateRangeError.classList.remove('hidden');
+                        return; // Prevent update if dates are invalid
+                    }
+                    params.start = formatThingSpeakDate(start);
+                    params.end = formatThingSpeakDate(end);
+                    // ThingSpeak limits custom range to 8000 results. Set a high number to get all possible.
+                    params.results = 8000;
+                } else {
+                    switch (selectedRange) {
+                        case 'last20': params.results = 20; break;
+                        case 'last100': params.results = 100; break;
+                        case 'last500': params.results = 500; break;
+                        case 'last8000': params.results = 8000; break;
+                        case 'last24hours': params.minutes = 1440; params.results = 8000; break;
+                        case 'last7days': params.days = 7; params.results = 8000; break;
+                        case 'hourlyAvg24': params.minutes = 1440; params.average = 60; break;
+                        case 'dailyAvg7': params.days = 7; params.average = 1440; break;
+                        default: params.results = 50;
                     }
                 }
-                chartInstances = {}; // Clear the chart instances object
-            } else {
-                mainDashboardTitle.textContent = currentChannelConfig.name; // Ensure title is set on initial load/filter change
-            }
 
+                const data = await fetchThingSpeakData(params);
 
-            const selectedRange = timeRangeSelect.value;
-            let params = {};
-            dateRangeError.classList.add('hidden'); // Hide any previous error
+                if (data && data.feeds && data.feeds.length > 0) {
+                    const feeds = data.feeds;
 
-            if (selectedRange === 'custom') {
-                const start = new Date(startDateInput.value);
-                const end = new Date(endDateInput.value);
-
-                if (isNaN(start.getTime()) || isNaN(end.getTime())) {
-                    dateRangeError.textContent = "Please select valid start and end dates.";
-                    dateRangeError.classList.remove('hidden');
-                    return; // Prevent update if dates are invalid
-                }
-                if (start.getTime() >= end.getTime()) {
-                    dateRangeError.textContent = "End date cannot be before or same as start date.";
-                    dateRangeError.classList.remove('hidden');
-                    return; // Prevent update if dates are invalid
-                }
-                params.start = formatThingSpeakDate(start);
-                params.end = formatThingSpeakDate(end);
-                // ThingSpeak limits custom range to 8000 results. Set a high number to get all possible.
-                params.results = 8000;
-            } else {
-                switch (selectedRange) {
-                    case 'last20': params.results = 20; break;
-                    case 'last100': params.results = 100; break;
-                    case 'last500': params.results = 500; break;
-                    case 'last8000': params.results = 8000; break;
-                    case 'last24hours': params.minutes = 1440; params.results = 8000; break;
-                    case 'last7days': params.days = 7; params.results = 8000; break;
-                    case 'hourlyAvg24': params.minutes = 1440; params.average = 60; break;
-                    case 'dailyAvg7': params.days = 7; params.average = 1440; break;
-                    default: params.results = 50;
-                }
-            }
-
-            const data = await fetchThingSpeakData(params);
-
-            if (data && data.feeds && data.feeds.length > 0) {
-                const feeds = data.feeds;
-
-                const fieldData = {};
-                currentChannelConfig.fields.forEach(field => {
-                    fieldData[field.id] = {
-                        timestamps: [],
-                        values: []
-                    };
-                });
-
-                feeds.forEach(feed => {
-                    const createdAt = new Date(feed.created_at);
-                    let formattedTime;
-                    if (selectedRange.includes('hourlyAvg') || selectedRange.includes('dailyAvg') || selectedRange === 'custom') {
-                        formattedTime = createdAt.toLocaleString();
-                    } else {
-                        formattedTime = createdAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-                    }
-                    
-                    currentChannelConfig.fields.forEach(field => { 
-                        const fieldValue = parseFloat(feed[`field${field.id}`]);
-                        fieldData[field.id].timestamps.push(formattedTime);
-                        fieldData[field.id].values.push(isNaN(fieldValue) ? null : fieldValue);
+                    const fieldData = {};
+                    currentChannelConfig.fields.forEach(field => {
+                        fieldData[field.id] = {
+                            timestamps: [],
+                            values: []
+                        };
                     });
-                });
 
-                document.getElementById('lastUpdatedTime').textContent = new Date(feeds[feeds.length - 1].created_at).toLocaleString();
+                    feeds.forEach(feed => {
+                        const createdAt = new Date(feed.created_at);
+                        let formattedTime;
+                        if (selectedRange.includes('hourlyAvg') || selectedRange.includes('dailyAvg') || selectedRange === 'custom') {
+                            formattedTime = createdAt.toLocaleString();
+                        } else {
+                            formattedTime = createdAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+                        }
+                        
+                        currentChannelConfig.fields.forEach(field => { 
+                            const fieldValue = parseFloat(feed[`field${field.id}`]);
+                            fieldData[field.id].timestamps.push(formattedTime);
+                            fieldData[field.id].values.push(isNaN(fieldValue) ? null : fieldValue);
+                        });
+                    });
 
-                currentChannelConfig.fields.forEach(field => {
-                    const fieldValues = fieldData[field.id].values.filter(v => v !== null); // Filter out nulls for calculations
-
-                    const latestValue = fieldValues.length > 0 ? fieldValues[fieldValues.length - 1].toFixed(2) : '--';
-                    document.getElementById(`latestField${field.id}`).textContent = latestValue;
-
-                    const min = fieldValues.length > 0 ? Math.min(...fieldValues).toFixed(2) : 'N/A';
-                    const max = fieldValues.length > 0 ? Math.max(...fieldValues).toFixed(2) : 'N/A';
-                    const avg = fieldValues.length > 0 ? (fieldValues.reduce((sum, val) => sum + val, 0) / fieldValues.length).toFixed(2) : 'N/A';
-
-                    document.getElementById(`minField${field.id}`).textContent = min;
-                    document.getElementById(`maxField${field.id}`).textContent = max;
-                    document.getElementById(`avgField${field.id}`).textContent = avg;
-
-                    updateChart(
-                        `chartField${field.id}`,
-                        field.label,
-                        fieldData[field.id].timestamps,
-                        fieldData[field.id].values,
-                        field.color,
-                        field.unit
-                    );
-                });
-            } else {
-                // No data received or feeds array is empty
-                document.getElementById('lastUpdatedTime').textContent = "No data available";
-                currentChannelConfig.fields.forEach(field => {
-                    document.getElementById(`latestField${field.id}`).textContent = "--";
-                    document.getElementById(`minField${field.id}`).textContent = "N/A";
-                    document.getElementById(`maxField${field.id}`).textContent = "N/A";
-                    document.getElementById(`avgField${field.id}`).textContent = "N/A";
-                    // Clear or destroy charts if no data
-                    const canvasId = `chartField${field.id}`;
-                    if (chartInstances[canvasId]) {
-                        chartInstances[canvasId].destroy();
-                        delete chartInstances[canvasId];
+                    if (document.getElementById('lastUpdatedTime')) {
+                        document.getElementById('lastUpdatedTime').textContent = new Date(feeds[feeds.length - 1].created_at).toLocaleString();
+                    } else {
+                        console.error("ERROR: lastUpdatedTime element not found.");
                     }
-                });
-                console.warn("No feeds data available for the selected channel and time range.");
+
+                    currentChannelConfig.fields.forEach(field => {
+                        const fieldValues = fieldData[field.id].values.filter(v => v !== null); // Filter out nulls for calculations
+
+                        const latestValue = fieldValues.length > 0 ? fieldValues[fieldValues.length - 1].toFixed(2) : '--';
+                        const latestFieldElement = document.getElementById(`latestField${field.id}`);
+                        if (latestFieldElement) latestFieldElement.textContent = latestValue; else console.error(`ERROR: latestField${field.id} element not found.`);
+
+                        const min = fieldValues.length > 0 ? Math.min(...fieldValues).toFixed(2) : 'N/A';
+                        const max = fieldValues.length > 0 ? Math.max(...fieldValues).toFixed(2) : 'N/A';
+                        const avg = fieldValues.length > 0 ? (fieldValues.reduce((sum, val) => sum + val, 0) / fieldValues.length).toFixed(2) : 'N/A';
+
+                        const minElement = document.getElementById(`minField${field.id}`);
+                        if (minElement) minElement.textContent = min; else console.error(`ERROR: minField${field.id} element not found.`);
+                        const maxElement = document.getElementById(`maxField${field.id}`);
+                        if (maxElement) maxElement.textContent = max; else console.error(`ERROR: maxField${field.id} element not found.`);
+                        const avgElement = document.getElementById(`avgField${field.id}`);
+                        if (avgElement) avgElement.textContent = avg; else console.error(`ERROR: avgField${field.id} element not found.`);
+
+                        updateChart(
+                            `chartField${field.id}`,
+                            field.label,
+                            fieldData[field.id].timestamps,
+                            fieldData[field.id].values,
+                            field.color,
+                            field.unit
+                        );
+                    });
+
+                    // Update map if latitude and longitude are available in the latest feed
+                    if (feeds[feeds.length - 1].latitude && feeds[feeds.length - 1].longitude) {
+                        updateMap(parseFloat(feeds[feeds.length - 1].latitude), parseFloat(feeds[feeds.length - 1].longitude));
+                    }
+
+                } else {
+                    // No data received or feeds array is empty
+                    if (document.getElementById('lastUpdatedTime')) {
+                        document.getElementById('lastUpdatedTime').textContent = "No data available";
+                    } else {
+                        console.error("ERROR: lastUpdatedTime element not found.");
+                    }
+                    currentChannelConfig.fields.forEach(field => {
+                        const latestFieldElement = document.getElementById(`latestField${field.id}`);
+                        if (latestFieldElement) latestFieldElement.textContent = "--"; else console.error(`ERROR: latestField${field.id} element not found.`);
+                        const minElement = document.getElementById(`minField${field.id}`);
+                        if (minElement) minElement.textContent = "N/A"; else console.error(`ERROR: minField${field.id} element not found.`);
+                        const maxElement = document.getElementById(`maxField${field.id}`);
+                        if (maxElement) maxElement.textContent = "N/A"; else console.error(`ERROR: maxField${field.id} element not found.`);
+                        const avgElement = document.getElementById(`avgField${field.id}`);
+                        if (avgElement) avgElement.textContent = "N/A"; else console.error(`ERROR: avgField${field.id} element not found.`);
+                        // Clear or destroy charts if no data
+                        const canvasId = `chartField${field.id}`;
+                        if (chartInstances[canvasId]) {
+                            chartInstances[canvasId].destroy();
+                            delete chartInstances[canvasId];
+                        }
+                    });
+                    console.warn("LOG: No feeds data available for the selected channel and time range.");
+                }
+            } catch (error) {
+                console.error("ERROR: Error in updateDashboard:", error);
             }
         }
 
@@ -850,16 +925,24 @@
          * Sets or clears the automatic refresh interval for dashboard data.
          */
         function setRefreshInterval() {
+            console.log("LOG: Setting refresh interval.");
+            if (!document.getElementById('refreshInterval')) { console.error("ERROR: refreshInterval element not found."); return; }
+
             if (currentRefreshIntervalId) {
                 clearInterval(currentRefreshIntervalId); // Clear any existing interval
+                console.log("LOG: Cleared previous refresh interval.");
             }
 
             const intervalSeconds = parseInt(document.getElementById('refreshInterval').value);
 
             if (intervalSeconds > 0) {
                 currentRefreshIntervalId = setInterval(() => {
+                    console.log("LOG: Refreshing dashboard via interval.");
                     updateDashboard(); // Call updateDashboard without changing channel
                 }, intervalSeconds * 1000);
+                console.log(`LOG: New refresh interval set to ${intervalSeconds} seconds.`);
+            } else {
+                console.log("LOG: Refresh interval paused.");
             }
         }
 
@@ -867,21 +950,73 @@
          * Initializes the Leaflet map and adds markers.
          */
         function initLeafletMap() {
-            const defaultCenter = [13.77, 100.5]; // A central point for Thailand/Bangkok [latitude, longitude]
-            leafletMap = L.map('leafletMap').setView(defaultCenter, 10); // Adjust zoom level as needed
+            console.log("LOG: Initializing Leaflet Map.");
+            if (!leafletMap) { // Only initialize map once
+                const mapElement = document.getElementById('leafletMap');
+                if (!mapElement) { console.error("ERROR: leafletMap element not found."); return; }
 
-            // Add an OpenStreetMap tile layer
-            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-            }).addTo(leafletMap);
+                const defaultCenter = [13.77, 100.5]; // A central point for Thailand/Bangkok [latitude, longitude]
+                leafletMap = L.map('leafletMap').setView(defaultCenter, 10); // Adjust zoom level as needed
 
-            addLeafletMarkersToMap();
+                // Add an OpenStreetMap tile layer
+                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+                }).addTo(leafletMap);
+                console.log("LOG: Leaflet Map initialized.");
+            } else {
+                console.log("LOG: Leaflet Map already initialized, skipping.");
+            }
+            addLeafletMarkersToMap(); // Always add/update markers
         }
+        
+        /**
+         * Updates the Leaflet map view to a new latitude and longitude.
+         * @param {number} lat - Latitude.
+         * @param {number} lng - Longitude.
+         */
+        function updateMap(lat, lng) {
+            console.log(`LOG: Updating map to Lat: ${lat}, Lng: ${lng}`);
+            if (leafletMap) {
+                leafletMap.setView([lat, lng], leafletMap.getZoom());
+                // Remove existing markers for the current channel to avoid duplicates
+                for (const markerId in leafletMarkers) {
+                    if (leafletMarkers[markerId]) {
+                        leafletMap.removeLayer(leafletMarkers[markerId]);
+                    }
+                }
+                leafletMarkers = {}; // Clear markers object
+
+                // Add a new marker for the current location
+                const currentChannel = channelsConfig[currentChannelId];
+                if (currentChannel && currentChannel.location) {
+                    const marker = L.marker([lat, lng])
+                        .addTo(leafletMap)
+                        .bindPopup(`Current Location: ${currentChannel.name || 'Device'}`).openPopup();
+                    leafletMarkers[currentChannelId] = marker;
+                }
+            } else {
+                console.warn("WARN: Map not initialized yet to update.");
+            }
+        }
+
 
         /**
          * Adds markers for each configured location to the Leaflet map.
          */
         function addLeafletMarkersToMap() {
+            console.log("LOG: Adding Leaflet markers to map.");
+            if (!leafletMap) {
+                console.error("ERROR: Map not initialized, cannot add markers.");
+                return;
+            }
+            // Clear existing markers to prevent duplicates on re-initialization
+            for (const markerId in leafletMarkers) {
+                if (leafletMarkers[markerId]) {
+                    leafletMap.removeLayer(leafletMarkers[markerId]);
+                }
+            }
+            leafletMarkers = {};
+
             for (const channelId in channelsConfig) {
                 const config = channelsConfig[channelId];
                 if (config.location) {
@@ -892,93 +1027,156 @@
                     leafletMarkers[channelId] = marker; // Store marker instance
 
                     marker.on('click', () => {
+                        console.log(`LOG: Marker for ${channelId} clicked.`);
                         // Update the channelSelect dropdown and trigger dashboard update
-                        document.getElementById('channelSelect').value = channelId;
+                        if (document.getElementById('channelSelect')) {
+                            document.getElementById('channelSelect').value = channelId;
+                        } else {
+                             console.error("ERROR: channelSelect element not found during marker click.");
+                        }
                         updateDashboard(channelId);
                         setRefreshInterval(); // Reset interval for new channel
                     });
                 }
             }
+            console.log("LOG: Leaflet markers added.");
         }
 
+        // Login Logic
+        const USERNAME = 'admin';
+        const PASSWORD = 'password';
+        const LOCAL_STORAGE_KEY = 'loggedIn';
+
         /**
-         * Generates a PDF report of the current dashboard content.
+         * Initializes dashboard functionalities and sets up event listeners.
+         * This function should be called ONLY ONCE when the dashboard becomes active.
          */
-        async function generatePdfReport() {
-            pdfLoadingOverlay.classList.add('show'); // Show loading overlay
+        function initializeDashboardFeatures() {
+            if (dashboardFeaturesInitialized) {
+                console.log("LOG: Dashboard features already initialized. Skipping re-initialization.");
+                return;
+            }
+            console.log("LOG: Initializing dashboard features...");
             try {
-                // Ensure chart rendering is complete before capturing
-                // You might need a small delay or a more robust way to ensure charts are drawn
-                await new Promise(resolve => setTimeout(resolve, 500)); // Small delay
+                populateChannelSelect();
+                setThemeFromLocalStorage(); 
+                setDefaultCustomRange();
+                toggleCustomRangeInputs();
+                updateDashboard(currentChannelId);
+                setRefreshInterval();
+                initLeafletMap(); // Ensure map is initialized
 
-                const canvas = await html2canvas(dashboardContent, {
-                    scale: 5, // Increase scale for better resolution in PDF
-                    useCORS: true, // If you have images/resources from other origins
-                    // Add any other options as needed
-                });
+                // Attach all dashboard-specific event listeners here.
+                // These are attached once after the dashboard is conceptually ready.
+                if (themeToggle) themeToggle.addEventListener('click', toggleTheme); else console.error("ERROR: themeToggle not found for event listener.");
+                
+                if (channelSelect) {
+                    channelSelect.addEventListener('change', (event) => {
+                        console.log("LOG: Channel select changed.");
+                        updateDashboard(event.target.value);
+                        setRefreshInterval();
+                    });
+                } else { console.error("ERROR: channelSelect not found for event listener."); }
 
-                const imgData = canvas.toDataURL('image/png');
-                const { jsPDF } = window.jspdf;
-                const pdf = new jsPDF('p', 'mm', 'a4'); // 'p' portrait, 'mm' units, 'a4' size
+                if (timeRangeSelect) {
+                    timeRangeSelect.addEventListener('change', () => {
+                        console.log("LOG: Time range select changed.");
+                        toggleCustomRangeInputs();
+                        updateDashboard();
+                        setRefreshInterval();
+                    });
+                } else { console.error("ERROR: timeRangeSelect not found for event listener."); }
 
-                const imgWidth = 210; // A4 width in mm
-                const pageHeight = 297; // A4 height in mm
-                const imgHeight = canvas.height * imgWidth / canvas.width;
-                let heightLeft = imgHeight;
-                let position = 0;
+                const applyFilterButton = document.getElementById('applyFilter');
+                if (applyFilterButton) {
+                    applyFilterButton.addEventListener('click', () => {
+                        console.log("LOG: Apply Filter button clicked.");
+                        updateDashboard();
+                        setRefreshInterval();
+                    });
+                } else { console.error("ERROR: applyFilter button not found for event listener."); }
 
-                pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
-                heightLeft -= pageHeight;
+                const refreshIntervalSelect = document.getElementById('refreshInterval');
+                if (refreshIntervalSelect) {
+                    refreshIntervalSelect.addEventListener('change', () => {
+                        console.log("LOG: Refresh Interval select changed.");
+                        setRefreshInterval();
+                    });
+                } else { console.error("ERROR: refreshInterval select not found for event listener."); }
 
-                while (heightLeft >= 0) {
-                    position = heightLeft - imgHeight;
-                    pdf.addPage();
-                    pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
-                    heightLeft -= pageHeight;
-                }
-
-                pdf.save('ThingSpeak_Dashboard_Report.pdf');
+                dashboardFeaturesInitialized = true;
+                console.log("LOG: Dashboard features initialized.");
             } catch (error) {
-                console.error("Error generating PDF:", error);
-                alert("Failed to generate PDF report. Please try again.");
-            } finally {
-                pdfLoadingOverlay.classList.remove('show'); // Hide loading overlay
+                console.error("ERROR: Error during dashboard features initialization:", error);
             }
         }
 
+        /**
+         * Shows the dashboard content and removes the login page from the DOM.
+         */
+        function showDashboardContent() {
+            console.log("LOG: Displaying dashboard and removing login page from DOM.");
+            if (loginPage && loginPage.parentNode) {
+                loginPage.parentNode.removeChild(loginPage); // Remove login page element
+            } else {
+                console.error("ERROR: loginPage element or its parent not found.");
+            }
+            if (dashboardContent) {
+                dashboardContent.classList.remove('hidden'); // Ensure dashboard is visible
+            } else {
+                console.error("ERROR: dashboardContent element not found.");
+            }
+            console.log("LOG: Dashboard content now visible, login page removed from DOM.");
+        }
+
+        /**
+         * Handles login form submission.
+         * @param {Event} event - The form submission event.
+         */
+        function handleLogin(event) {
+            event.preventDefault(); // Prevent default form submission
+            console.log("LOG: Login form submitted.");
+
+            if (!usernameInput) { console.error("ERROR: usernameInput element not found."); return; }
+            if (!passwordInput) { console.error("ERROR: passwordInput element not found."); return; }
+            if (!loginErrorMessage) { console.error("ERROR: loginErrorMessage element not found."); return; }
+
+            const username = usernameInput.value;
+            const password = passwordInput.value;
+
+            if (username === USERNAME && password === PASSWORD) {
+                console.log("LOG: Login successful. Storing login status and showing dashboard.");
+                localStorage.setItem(LOCAL_STORAGE_KEY, 'true'); // Store login status
+                loginErrorMessage.classList.add('hidden');
+                showDashboardContent(); // Show dashboard UI and remove login page
+                initializeDashboardFeatures(); // Initialize all dashboard features
+            } else {
+                console.log("LOG: Login failed: Invalid username or password.");
+                loginErrorMessage.textContent = "Invalid username or password."; // Set specific error message
+                loginErrorMessage.classList.remove('hidden');
+            }
+        }
 
         // Event Listeners
         document.addEventListener('DOMContentLoaded', () => {
-            populateChannelSelect(); // Populate the dropdown first
-            setThemeFromLocalStorage(); // Set theme on initial load
-            setDefaultCustomRange(); // Set initial default values for custom range inputs
-            toggleCustomRangeInputs(); // Set initial visibility based on default selected option
-            updateDashboard(currentChannelId); // Initial load with the default channel
-            setRefreshInterval(); // Set initial refresh interval
+            console.log("LOG: DOM Content Loaded. Initializing app state.");
+            // Ensure loginForm exists before adding listener
+            if (loginForm) {
+                loginForm.addEventListener('submit', handleLogin);
+            } else {
+                console.error("ERROR: loginForm element not found. Login functionality will not work.");
+            }
 
-            // Initialize Leaflet Map
-            initLeafletMap();
-
-            themeToggle.addEventListener('click', toggleTheme); // Toggle theme on button click
-            
-            channelSelect.addEventListener('change', (event) => {
-                updateDashboard(event.target.value); // Update dashboard when channel changes
-                setRefreshInterval(); // Reset interval for new channel
-            });
-
-            timeRangeSelect.addEventListener('change', () => {
-                toggleCustomRangeInputs();
-                updateDashboard(); // Update immediately when time range changes
-                setRefreshInterval(); // Reset interval, potentially pausing it for 'custom'
-            });
-
-            document.getElementById('applyFilter').addEventListener('click', () => {
-                updateDashboard(); // Update immediately when filter is applied
-                setRefreshInterval(); // Reset interval with potentially new frequency
-            });
-            document.getElementById('refreshInterval').addEventListener('change', setRefreshInterval);
-
-            generatePdfButton.addEventListener('click', generatePdfReport);
+            // Check login status on page load
+            if (localStorage.getItem(LOCAL_STORAGE_KEY) === 'true') {
+                console.log("LOG: User already logged in. Showing dashboard.");
+                showDashboardContent(); // Show dashboard UI if logged in
+                initializeDashboardFeatures(); // Initialize all dashboard features
+            } else {
+                console.log("LOG: User not logged in. Showing login page.");
+                if (loginPage) loginPage.classList.remove('hidden'); else console.error("ERROR: loginPage element not found on initial load.");
+                if (dashboardContent) dashboardContent.classList.add('hidden'); else console.error("ERROR: dashboardContent element not found on initial load.");
+            }
         });
     </script>
 </body>
